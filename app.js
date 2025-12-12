@@ -1,0 +1,509 @@
+const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+
+const App = {
+  setup() {
+    const videoForwardRef = ref(null);
+    const videoReverseRef = ref(null);
+    const scrollProgress = ref(0);
+    const currentSection = ref(1);
+    const videoReady = ref(false);
+    const windowLoaded = ref(false);
+    let hasStarted = false;
+    const showContent = ref(false);
+    const exitingSection = ref(null); // Track which section is animating out
+    const isReversing = ref(false);
+    const videoSwitchReady = ref(true); // Tracks if incoming video is ready to show
+    const gradientSection = ref(1); // Tracks which gradient to show (CSS handles smooth transition)
+    const gradientDuration = ref('1s'); // Duration synced to video segment playback
+    const gradientAngle = ref('135deg'); // Angle: 135deg at rest, 180deg during color transition
+    const angleDuration = ref('0.3s'); // Quick angle transitions
+
+    const videoDuration = 10;
+    const frameRate = 24;
+    const totalFrames = 240; // 10 seconds * 24 fps
+
+    // Convert frame number to timestamp
+    // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
+    const frameToTime = (frame) => (frame / frameRate) + 0.001;
+
+    // Gradient section is now controlled via data-section attribute on .video-container
+    // CSS handles the smooth color interpolation via @property
+
+    // Project content for each section
+    const projects = [
+      {
+        number: '01',
+        title: 'Newsway',
+        logo: 'assets/newsway_project.jpg',
+        link: 'newsway.html',
+        description: 'NewsWay is a news summary engine which leverages Google\'s Gemini Ai to deliver concise and digestible summaries of the latest breaking news.'
+      },
+      {
+        number: '02',
+        title: 'GifSig',
+        logo: 'assets/gifsig_project.png',
+        link: 'gifsig.html',
+        description: 'GifSig is simply an excuse to scribble on your phone but you can also capture your signature as a once-looped high-quality GIF, ideal for email signatures.'
+      },
+      {
+        number: '03',
+        title: 'Nadette',
+        logo: 'assets/nadette_project.png',
+        link: 'nadette.html',
+        description: 'Nadette is a personal assistant you can easily call to execute tasks using natural voice commands.'
+      },
+      {
+        number: '04',
+        title: 'TrueAutoColor',
+        logo: 'assets/TrueAutoColor_project.JPG',
+        link: 'trueautocolor.html',
+        description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names without using plugins.'
+      }
+    ];
+
+    // Section timing using FRAME NUMBERS for accuracy
+    // [startFrame, endFrame] - endFrame is the freeze frame
+    const sectionFrames = {
+      0: [0, 0],        // virtual section 0 for initial state (frame 0)
+      1: [0, 23],       // frames 0-24 (0-1s), freeze at frame 24
+      2: [23, 55],      // frames 24-55 (1-2.3s), freeze at frame 55
+      3: [55, 168],     // frames 55-168 (2.3-7s), freeze at frame 168
+      4: [168, 240]     // frames 168-240 (7-10s), freeze at frame 240
+    };
+
+    // Reverse video: frame N in forward = frame (totalFrames - N) in reverse
+    // For frame-perfect alignment, reverse freeze frames must exactly match forward freeze frames
+    // Forward freezes at: 24, 55, 168, 240 → Reverse freezes at: 216, 185, 72, 0
+    const sectionFramesReverse = {
+      1: [totalFrames - 24, totalFrames],         // frames 216-240, freeze at 216 (matches fwd frame 24)
+      2: [totalFrames - 55, totalFrames - 24],    // frames 185-216, freeze at 185 (matches fwd frame 55)
+      3: [totalFrames - 168, totalFrames - 55],   // frames 72-185, freeze at 72 (matches fwd frame 168)
+      4: [totalFrames - 240, totalFrames - 168]   // frames 0-72, freeze at 0 (matches fwd frame 240)
+    };
+
+    // Play video forward (supports multi-section jumps)
+    const playForward = (fromSection, targetSection) => {
+      const videoFwd = videoForwardRef.value;
+      const videoRev = videoReverseRef.value;
+      if (!videoFwd) return;
+
+      // Trigger exit animation on current section
+      exitingSection.value = fromSection;
+      showContent.value = false;
+
+      // For multi-section jumps, play from current position to target end frame
+      const [, startEndFrame] = sectionFrames[fromSection];
+      const [, endFrame] = sectionFrames[targetSection];
+      const startTime = frameToTime(startEndFrame);
+      const endTime = frameToTime(endFrame);
+      const segmentLength = endTime - startTime;
+      const playbackRate = segmentLength > 2 ? 2 : 1;
+      videoFwd.playbackRate = playbackRate;
+
+      // Orchestrate gradient transition
+      const actualDuration = segmentLength / playbackRate;
+      const angleTransitionTime = 300; // ms for angle to rotate
+      gradientAngle.value = '180deg';
+      setTimeout(() => {
+        gradientDuration.value = `${actualDuration - 0.6}s`;
+        gradientSection.value = targetSection;
+      }, angleTransitionTime);
+      setTimeout(() => {
+        gradientAngle.value = '135deg';
+      }, (actualDuration * 1000) - angleTransitionTime);
+
+      const startPlayback = () => {
+        videoFwd.play();
+
+        // Sync reverse video position (using frame-accurate time)
+        // DELAY this seek to ensure videoRev is fully hidden (opacity applied) before scrubbing
+        setTimeout(() => {
+          const revEndFrame = sectionFramesReverse[targetSection][0];
+          if (videoRev) videoRev.currentTime = frameToTime(revEndFrame);
+        }, 100);
+
+        const checkTime = () => {
+          if (videoFwd.currentTime >= endTime - 0.02) {
+            videoFwd.pause();
+            videoFwd.currentTime = endTime;
+            // Ensure reverse video is synced for next move
+            const revEndFrame = sectionFramesReverse[targetSection][0];
+            if (videoRev) videoRev.currentTime = frameToTime(revEndFrame);
+
+            exitingSection.value = null; // Clear exiting state
+            showContent.value = true;
+            enableScrollInput();
+          } else {
+            requestAnimationFrame(checkTime);
+          }
+        };
+        requestAnimationFrame(checkTime);
+      };
+
+      // Ensure start position
+      videoFwd.currentTime = startTime;
+
+      // If we are currently showing Reverse, we need to swap
+      if (isReversing.value) {
+        // Wait for seek (if needed) and paint before swapping visibility
+        const onReadyToSwap = () => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    isReversing.value = false; // Swap to Forward
+                    startPlayback();
+                });
+            });
+        };
+
+        // If we just sought, wait for event. If not, just swap.
+        // Since we set currentTime above, let's assume we might need to wait if it changed significantl
+        // But usually fwd is pre-seeked. We can trust the double-RAF to catch the paint.
+        onReadyToSwap();
+      } else {
+        // Already on Forward, just play
+        startPlayback();
+      }
+    };
+
+    // Play video in reverse (using the reversed video file)
+    const playReverse = (fromSection, targetSection) => {
+      const videoFwd = videoForwardRef.value;
+      const videoRev = videoReverseRef.value;
+      if (!videoRev) return;
+
+      // Trigger exit animation on current section
+      exitingSection.value = fromSection;
+      showContent.value = false;
+
+      // Get frame numbers
+      const [revStartFrame] = sectionFramesReverse[fromSection];
+      const [revEndFrame] = sectionFramesReverse[targetSection];
+      const [, targetEndFrame] = sectionFrames[targetSection];
+
+      // Convert to timestamps
+      const revStartTime = frameToTime(revStartFrame);
+      const revEndTime = frameToTime(revEndFrame);
+      const targetEndTime = frameToTime(targetEndFrame);
+
+      const segmentLength = revEndTime - revStartTime;
+      const playbackRate = segmentLength > 2 ? 2 : 1;
+      videoRev.playbackRate = playbackRate;
+
+      // Orchestrate gradient transition
+      const actualDuration = segmentLength / playbackRate;
+      const angleTransitionTime = 300; // ms for angle to rotate
+      gradientAngle.value = '180deg';
+      setTimeout(() => {
+        gradientDuration.value = `${actualDuration - 0.6}s`;
+        gradientSection.value = targetSection;
+      }, angleTransitionTime);
+      setTimeout(() => {
+        gradientAngle.value = '135deg';
+      }, (actualDuration * 1000) - angleTransitionTime);
+
+      const startPlayback = () => {
+         videoRev.play();
+
+         // Pre-seek forward video for next move (delayed)
+         setTimeout(() => {
+            if (videoFwd) videoFwd.currentTime = targetEndTime;
+         }, 100);
+
+        const checkTime = () => {
+          if (videoRev.currentTime >= revEndTime - 0.02) {
+            videoRev.pause();
+            videoRev.currentTime = revEndTime;
+            // Ensure forward video is synced
+            if (videoFwd) videoFwd.currentTime = targetEndTime;
+
+            exitingSection.value = null; // Clear exiting state
+            showContent.value = true;
+            enableScrollInput();
+            // STAY on Reverse video - no swap back!
+          } else {
+            requestAnimationFrame(checkTime);
+          }
+        };
+        requestAnimationFrame(checkTime);
+      };
+
+      // Ensure start position
+      videoRev.currentTime = revStartTime;
+
+      // If we are currently showing Forward (default), we need to swap
+      if (!isReversing.value) {
+         // We might have just sought videoRev to start time.
+         // Wait for seeked event if we are not confident, or just Paint Wait.
+         // Given we pre-seeked in playForward, we should be close.
+         // But let's be safe and wait for a seeked event if it fires, or timeout.
+
+         const doSwap = () => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    videoSwitchReady.value = true;
+                    isReversing.value = true; // Swap to Reverse
+                    startPlayback();
+                });
+            });
+         };
+
+         // If we are far off, wait for seek.
+         // But usually we are pre-seeked.
+         doSwap();
+      } else {
+        startPlayback();
+      }
+    };
+
+    // Disable all scroll input during video playback
+    const disableScrollInput = () => {
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+    };
+
+    // Re-enable scroll input after video completes
+    const enableScrollInput = () => {
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      window.addEventListener('touchstart', handleTouchStart, { passive: true });
+      window.addEventListener('touchend', handleTouchEnd, { passive: true });
+    };
+
+    // Handle wheel events for section-by-section scrolling
+    const handleWheel = (e) => {
+      e.preventDefault();
+
+      const delta = e.deltaY;
+      if (delta > 20 && currentSection.value < 4) {
+        disableScrollInput();
+        const fromSection = currentSection.value;
+        currentSection.value++;
+        playForward(fromSection, currentSection.value);
+      } else if (delta < -20 && currentSection.value > 1) {
+        disableScrollInput();
+        const fromSection = currentSection.value;
+        currentSection.value--;
+        playReverse(fromSection, currentSection.value);
+      }
+    };
+
+    // Handle touch events for mobile
+    let touchStartY = 0;
+    const handleTouchStart = (e) => {
+      touchStartY = e.touches[0].clientY;
+    };
+
+    const handleTouchEnd = (e) => {
+      const touchEndY = e.changedTouches[0].clientY;
+      const delta = touchStartY - touchEndY;
+
+      if (delta > 50 && currentSection.value < 4) {
+        disableScrollInput();
+        const fromSection = currentSection.value;
+        currentSection.value++;
+        playForward(fromSection, currentSection.value);
+      } else if (delta < -50 && currentSection.value > 1) {
+        disableScrollInput();
+        const fromSection = currentSection.value;
+        currentSection.value--;
+        playReverse(fromSection, currentSection.value);
+      }
+    };
+
+    const scrollToSection = (sectionIndex) => {
+      if (sectionIndex === currentSection.value) return;
+      disableScrollInput();
+      const fromSection = currentSection.value;
+      currentSection.value = sectionIndex;
+      if (sectionIndex > fromSection) {
+        playForward(fromSection, sectionIndex);
+      } else {
+        playReverse(fromSection, sectionIndex);
+      }
+    };
+
+    const tryStart = () => {
+      if (!hasStarted && videoReady.value && windowLoaded.value) {
+        hasStarted = true;
+        // Listeners not added yet, so no need to disable - they get added after video completes
+        playForward(0, 1); // From section 0 (start) to section 1
+      }
+    };
+
+    onMounted(() => {
+      // Prevent default scroll
+      document.body.style.overflow = 'hidden';
+
+      // Scroll listeners are NOT added here - they are added by enableScrollInput()
+      // after the initial video animation completes
+
+      // Initialize both videos
+      const videoFwd = videoForwardRef.value;
+      const videoRev = videoReverseRef.value;
+
+      let loadedCount = 0;
+      const onVideoReady = () => {
+        loadedCount++;
+        if (loadedCount === 2) {
+          console.log('Both videos loaded');
+          videoReady.value = true;
+          videoFwd.currentTime = 0;
+          videoRev.currentTime = frameToTime(totalFrames); // End of reverse = start of forward
+          tryStart();
+        }
+      };
+
+      const onWindowLoad = () => {
+        windowLoaded.value = true;
+        tryStart();
+      };
+
+      if (document.readyState === 'complete') {
+        windowLoaded.value = true;
+      } else {
+        window.addEventListener('load', onWindowLoad);
+      }
+
+      if (videoFwd) {
+        videoFwd.muted = true;
+        videoFwd.playsInline = true;
+        videoFwd.addEventListener('loadeddata', onVideoReady, { once: true });
+        videoFwd.load();
+      }
+
+      if (videoRev) {
+        videoRev.muted = true;
+        videoRev.playsInline = true;
+        videoRev.addEventListener('loadeddata', onVideoReady, { once: true });
+        videoRev.load();
+      }
+    });
+
+    onUnmounted(() => {
+      document.body.style.overflow = '';
+      window.removeEventListener('wheel', handleWheel);
+      window.removeEventListener('touchstart', handleTouchStart);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('load', onWindowLoad);
+    });
+
+    const menuOpen = ref(false);
+    const toggleMenu = () => {
+      menuOpen.value = !menuOpen.value;
+    };
+
+    return {
+      videoForwardRef,
+      videoReverseRef,
+      scrollProgress,
+      currentSection,
+      gradientSection,
+      gradientDuration,
+      gradientAngle,
+      angleDuration,
+      projects,
+      scrollToSection,
+      showContent,
+      exitingSection,
+      isReversing,
+      videoSwitchReady,
+      videoReady,
+      menuOpen,
+      toggleMenu
+    };
+  },
+
+  template: `
+    <div class="scroll-container">
+      <!-- Progress bar -->
+      <div class="progress-bar" :style="{ width: (scrollProgress * 100) + '%' }"></div>
+
+      <!-- Video background with CSS-interpolated gradient -->
+      <div class="video-container" :data-section="gradientSection" :style="{ '--gradient-duration': gradientDuration, '--gradient-angle': gradientAngle, '--angle-duration': angleDuration }">
+        <!-- Forward video -->
+        <video
+          ref="videoForwardRef"
+          muted
+          playsinline
+          preload="auto"
+          :class="{ 'video-active': !isReversing, 'video-hidden': isReversing && videoSwitchReady, 'video-switching': isReversing && !videoSwitchReady }"
+          :style="{ opacity: videoReady ? null : 0 }"
+        >
+          <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
+        </video>
+        <!-- Reverse video -->
+        <video
+          ref="videoReverseRef"
+          muted
+          playsinline
+          preload="auto"
+          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !isReversing, 'video-switching': isReversing && !videoSwitchReady }"
+          :style="{ opacity: videoReady ? null : 0 }"
+        >
+          <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
+        </video>
+      </div>
+
+      <!-- Hamburger Menu Button -->
+      <button class="hamburger-btn" :class="{ active: menuOpen }" @click="toggleMenu">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <!-- Menu Overlay -->
+      <div class="menu-overlay" :class="{ active: menuOpen }">
+        <div class="menu-content">
+          <nav>
+            <a href="#about" @click="toggleMenu">About</a>
+            <a href="#contact" @click="toggleMenu">Contact</a>
+            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" @click="toggleMenu">LinkedIn</a>
+          </nav>
+        </div>
+      </div>
+
+      <!-- Header -->
+      <div class="header-title">
+        <h1>Cory's Portfolio</h1>
+      </div>
+
+      <!-- Content overlay -->
+      <div class="content-overlay">
+        <div
+          v-for="(project, index) in projects"
+          :key="index"
+          class="section-content"
+          :class="['section-' + (index + 1), { active: currentSection === index + 1 && showContent, exiting: exitingSection === index + 1 }]"
+        >
+          <a :href="project.link" class="project-link">
+            <img v-if="project.logo" :src="project.logo" :alt="project.title" class="project-logo">
+            <h2 v-else>{{ project.title }}</h2>
+            <div class="project-tooltip">{{ project.description }}</div>
+          </a>
+        </div>
+      </div>
+
+      <!-- Section dots navigation -->
+      <div class="section-dots">
+        <div
+          v-for="i in 4"
+          :key="i"
+          class="section-dot"
+          :class="{ active: currentSection === i }"
+          @click="scrollToSection(i)"
+        ></div>
+      </div>
+
+      <!-- Scroll indicator -->
+      <div class="scroll-indicator" :class="{ hidden: scrollProgress > 0.05 }">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+        <div>Scroll</div>
+      </div>
+
+    </div>
+  `
+};
+
+createApp(App).mount('#app');

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrueAutoColor - Cory's Portfolio</title>
+  <style>
+    /* Critical inline styles - matches section 4 gradient */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      min-height: 100vh;
+    }
+  </style>
+  <link rel="stylesheet" href="project.css">
+  <link rel="stylesheet" href="project-desktop.css" media="(min-width: 769px)">
+  <link rel="stylesheet" href="project-mobile.css" media="(max-width: 768px)">
+</head>
+<body>
+  <div class="project-page" data-section="4">
+    <!-- Back link -->
+    <a href="index.html" class="back-link">← Back to Main</a>
+
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="menuBtn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay">
+      <div class="menu-content">
+        <nav>
+          <a href="#about" onclick="toggleMenu()">About</a>
+          <a href="#contact" onclick="toggleMenu()">Contact</a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" onclick="toggleMenu()">LinkedIn</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Project Content -->
+    <div class="project-content">
+      <h1>TrueAutoColor</h1>
+      <div class="project-hero">
+        <img src="assets/TrueAutoColor_project.JPG" alt="TrueAutoColor Project">
+      </div>
+      <div class="project-description">
+        <p class="project-summary">TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names—no plugins required.</p>
+        <p>TrueAutoColor is a utility for Ableton Live 11+ that automatically colors your tracks and clips based on their names—no plugins required. Create custom color layouts with up to 70 unique Ableton colors, and trigger changes just by typing a name and pressing enter. It runs externally with minimal CPU usage, giving you a cleaner, more organized session instantly.</p>
+        <p class="project-cta">If you want to check out TrueAutoColor, <a href="https://coryboris.gumroad.com/l/TrueAutoColor" target="_blank" rel="noopener noreferrer">click here</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+
+    function toggleMenu() {
+      menuBtn.classList.toggle('active');
+      menuOverlay.classList.toggle('active');
+    }
+
+    menuBtn.addEventListener('click', toggleMenu);
+  </script>
+</body>
+</html>

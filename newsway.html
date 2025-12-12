@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newsway - Cory's Portfolio</title>
+  <style>
+    /* Critical inline styles - matches section 1 gradient */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #2d4a6f 0%, #3a6186 50%, #4b79a1 100%);
+      min-height: 100vh;
+    }
+  </style>
+  <link rel="stylesheet" href="project.css">
+  <link rel="stylesheet" href="project-desktop.css" media="(min-width: 769px)">
+  <link rel="stylesheet" href="project-mobile.css" media="(max-width: 768px)">
+</head>
+<body>
+  <div class="project-page" data-section="1">
+    <!-- Back link -->
+    <a href="index.html" class="back-link">← Back to Main</a>
+
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="menuBtn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay">
+      <div class="menu-content">
+        <nav>
+          <a href="#about" onclick="toggleMenu()">About</a>
+          <a href="#contact" onclick="toggleMenu()">Contact</a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" onclick="toggleMenu()">LinkedIn</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Project Content -->
+    <div class="project-content">
+      <h1>Newsway</h1>
+      <div class="project-hero">
+        <img src="assets/newsway_project.jpg" alt="Newsway Project">
+      </div>
+      <div class="project-description">
+        <p>NewsWay is an AI-powered news aggregation platform that curates and summarizes the latest headlines across politics, business, technology, and more. It delivers concise, digestible news summaries so you can stay informed without information overload. Whether you're catching up on global events or tracking specific topics, NewsWay makes reading the news faster and easier.</p>
+        <p class="project-cta">If you want to check out NewsWay, <a href="https://www.newsway.ai" target="_blank" rel="noopener noreferrer">click here</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+
+    function toggleMenu() {
+      menuBtn.classList.toggle('active');
+      menuOverlay.classList.toggle('active');
+    }
+
+    menuBtn.addEventListener('click', toggleMenu);
+  </script>
+</body>
+</html>

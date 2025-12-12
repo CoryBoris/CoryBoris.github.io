@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GifSig - Cory's Portfolio</title>
+  <style>
+    /* Critical inline styles - matches section 2 gradient */
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #2c3e50 0%, #3498db 50%, #87ceeb 100%);
+      min-height: 100vh;
+    }
+  </style>
+  <link rel="stylesheet" href="project.css">
+  <link rel="stylesheet" href="project-desktop.css" media="(min-width: 769px)">
+  <link rel="stylesheet" href="project-mobile.css" media="(max-width: 768px)">
+</head>
+<body>
+  <div class="project-page" data-section="2">
+    <!-- Back link -->
+    <a href="index.html" class="back-link">← Back to Main</a>
+
+    <!-- Hamburger Menu Button -->
+    <button class="hamburger-btn" id="menuBtn">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
+    <!-- Menu Overlay -->
+    <div class="menu-overlay" id="menuOverlay">
+      <div class="menu-content">
+        <nav>
+          <a href="#about" onclick="toggleMenu()">About</a>
+          <a href="#contact" onclick="toggleMenu()">Contact</a>
+          <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" onclick="toggleMenu()">LinkedIn</a>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Project Content -->
+    <div class="project-content">
+      <h1>GifSig</h1>
+      <div class="project-hero">
+        <img src="assets/gifsig_project.png" alt="GifSig Project">
+      </div>
+      <div class="project-description">
+        <p class="project-summary">GifSig is a privacy-first tool for creating animated signature GIFs with zero data collection.</p>
+        <p>GifSig is a privacy-first tool that lets you create animated signature GIFs for use in emails, documents, or social profiles. With zero data collection, no tracking, and password-protected storage, your creations stay yours. It's free to use, simple to access, and puts your privacy first.</p>
+        <p class="project-cta">If you want to check out GifSig, <a href="https://www.gifsig.com" target="_blank" rel="noopener noreferrer">click here</a>.</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const menuBtn = document.getElementById('menuBtn');
+    const menuOverlay = document.getElementById('menuOverlay');
+
+    function toggleMenu() {
+      menuBtn.classList.toggle('active');
+      menuOverlay.classList.toggle('active');
+    }
+
+    menuBtn.addEventListener('click', toggleMenu);
+  </script>
+</body>
+</html>

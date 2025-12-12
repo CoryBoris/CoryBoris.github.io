@@ -1,0 +1,143 @@
+/* Project page styles */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Project page container with gradient backgrounds */
+.project-page {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  padding: 80px 20px 40px;
+}
+
+/* Gradient backgrounds matching main page sections */
+.project-page[data-section="1"] {
+  background: linear-gradient(135deg, #2d4a6f 0%, #3a6186 50%, #4b79a1 100%);
+}
+
+.project-page[data-section="2"] {
+  background: linear-gradient(135deg, #2c3e50 0%, #3498db 50%, #87ceeb 100%);
+}
+
+.project-page[data-section="3"] {
+  background: linear-gradient(135deg, #4a69bd 0%, #6a89cc 50%, #b8d4e3 100%);
+}
+
+.project-page[data-section="4"] {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+}
+
+/* Noise overlay for consistency with main page */
+.project-page::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.25;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  z-index: 0;
+}
+
+/* Back link */
+.back-link {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+  color: white;
+  text-decoration: none;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Hamburger menu styles are in project-desktop.css and project-mobile.css */
+
+/* Project content */
+.project-content {
+  position: relative;
+  z-index: 1;
+  max-width: 800px;
+  margin: 0 auto;
+  color: white;
+}
+
+.project-content h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  margin-bottom: 2rem;
+  text-align: center;
+  text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.project-hero {
+  margin-bottom: 2rem;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.project-hero img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.project-description {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.project-description p {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
+  .project-page {
+    padding: 70px 16px 30px;
+  }
+
+  .back-link {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+
+  .project-content h1 {
+    font-size: 2rem;
+  }
+
+  .project-description {
+    padding: 1.5rem;
+  }
+
+  .project-description p {
+    font-size: 1rem;
+  }
+}
