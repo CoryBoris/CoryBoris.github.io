@@ -299,8 +299,11 @@ html, body {
   text-align: center;
   color: white;
   text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
-  animation: bounce 2s infinite;
   transition: opacity 0.3s ease;
+}
+
+.scroll-indicator.bouncing {
+  animation: bounce 2s infinite;
 }
 
 .scroll-indicator.hidden {
@@ -459,6 +462,12 @@ html, body {
   transition: opacity 0.3s ease;
 }
 
+/* Fast close when in email mode */
+.menu-overlay.email-mode:not(.active) {
+  transition: opacity 0.5s ease;
+  transition-delay: 0s;
+}
+
 .menu-content {
   text-align: center;
 }
@@ -467,6 +476,20 @@ html, body {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
+}
+
+.menu-content .menu-nav.hidden {
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(10px);
+  transform: scale(0.95);
+  transition-delay: 0s !important; /* Immediate fade out */
+}
+
+/* Override stagger for the container fade out */
+.menu-content .menu-nav.hidden a {
+  transition: none; /* Let container handle the fade */
 }
 
 .menu-content a {
@@ -483,12 +506,14 @@ html, body {
   will-change: opacity, filter, transform;
   /* Close: letters blur and fade out over 2.2s total with stagger */
   transition: opacity 1.7s ease-out, filter 1.7s ease-out, transform 1.7s ease-out, letter-spacing 0.3s ease;
+  cursor: pointer;
 }
 
 /* Close: reverse stagger - last item fades first */
-.menu-content a:nth-child(1) { transition-delay: 0.5s; }
-.menu-content a:nth-child(2) { transition-delay: 0.25s; }
-.menu-content a:nth-child(3) { transition-delay: 0s; }
+.menu-content a:nth-child(1) { transition-delay: 0.75s; }
+.menu-content a:nth-child(2) { transition-delay: 0.5s; }
+.menu-content a:nth-child(3) { transition-delay: 0.25s; }
+.menu-content a:nth-child(4) { transition-delay: 0s; }
 
 .menu-overlay.active .menu-content a {
   opacity: 1;
@@ -497,6 +522,100 @@ html, body {
   /* Open: all items appear together instantly (no stagger) */
   transition: opacity 0.4s ease-out, filter 0.4s ease-out, transform 0.4s ease-out, letter-spacing 0.3s ease;
   transition-delay: 0s;
+}
+
+/* Email View */
+.email-view {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.9);
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  opacity: 0;
+  pointer-events: none;
+  filter: blur(10px);
+  transition: opacity 0.4s ease, transform 0.4s ease, filter 0.4s ease;
+}
+
+.email-view.active {
+  opacity: 1;
+  pointer-events: auto;
+  filter: blur(0px);
+  transform: translate(-50%, -50%) scale(1);
+  transition-delay: 0.1s;
+}
+
+.email-link {
+  font-size: 2rem !important; /* Reduced from 3rem */
+  text-transform: none !important; /* Keep email case */
+  letter-spacing: 1px !important;
+  opacity: 1 !important; /* Override menu link opacity */
+  filter: none !important;
+  transform: none !important;
+  white-space: nowrap;
+  color: #2997ff !important; /* Classic link blue (adjusted for dark mode visibility) */
+  text-decoration: underline !important;
+  text-underline-offset: 4px;
+}
+
+.menu-back-btn {
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.1rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  transition: color 0.3s ease;
+  position: absolute;
+  top: -60px; /* Position above the email */
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.menu-back-btn:hover {
+  color: white;
+}
+
+.menu-back-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.copy-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 9px 20px 11px; /* Asymmetric padding to nudge text up 1px */
+  border-radius: 24px; /* Increased radius for pill shape */
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1; /* Tighter line-height for better vertical centering */
+  min-width: 140px; /* Prevent resize when text changes to "Copied!" */
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.copy-btn:active {
+  transform: translateY(0);
 }
 
 .menu-content a:hover {

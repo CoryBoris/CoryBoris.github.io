@@ -313,6 +313,7 @@ const App = {
     let touchStartY = 0;
 
     function handleWheel(e) {
+      resetBounceTimer();
       e.preventDefault();
       if (isScrollLocked.value) return;
 
@@ -339,10 +340,12 @@ const App = {
       const delta = touchStartY - touchEndY;
 
       if (delta > 50 && currentSection.value < 4) {
+        resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
       } else if (delta < -50 && currentSection.value > 1) {
+        resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value--;
         playReverse(fromSection, currentSection.value);
@@ -491,8 +494,69 @@ const App = {
     });
 
     const menuOpen = ref(false);
+    const emailView = ref(false);
+    const copyButtonText = ref('Copy Address');
+    const isBouncing = ref(true);
+    let bounceTimer = null;
+
+    const resetBounceTimer = () => {
+      isBouncing.value = false;
+      if (bounceTimer) clearTimeout(bounceTimer);
+      bounceTimer = setTimeout(() => {
+        isBouncing.value = true;
+      }, 9000);
+    };
+
     const toggleMenu = () => {
+      resetBounceTimer();
       menuOpen.value = !menuOpen.value;
+      if (!menuOpen.value) {
+        // Shorter delay if in email view (fast close), else normal delay
+        const delay = emailView.value ? 600 : 500;
+        setTimeout(() => {
+          emailView.value = false;
+          copyButtonText.value = 'Copy Address';
+        }, delay);
+      }
+    };
+
+    const showEmail = () => {
+      emailView.value = true;
+    };
+
+    const hideEmail = () => {
+      emailView.value = false;
+    };
+
+    const copyEmail = () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('CoryWBoris@gmail.com').then(() => {
+          copyButtonText.value = 'Copied!';
+          setTimeout(() => {
+            copyButtonText.value = 'Copy Address';
+          }, 2000);
+        }).catch(err => {
+          console.error('Copy failed', err);
+        });
+      } else {
+        // Fallback for non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = 'CoryWBoris@gmail.com';
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          copyButtonText.value = 'Copied!';
+          setTimeout(() => {
+            copyButtonText.value = 'Copy Address';
+          }, 2000);
+        } catch (err) {
+          console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
+      }
     };
 
     const handleProjectClick = (project, sectionIndex) => {
@@ -519,8 +583,15 @@ const App = {
       videoReady,
       siteLoaded,
       menuOpen,
+      emailView,
+      copyButtonText,
       toggleMenu,
-      handleProjectClick
+      showEmail,
+      hideEmail,
+      copyEmail,
+      handleProjectClick,
+      isBouncing,
+      resetBounceTimer
     };
   },
 
@@ -563,13 +634,25 @@ const App = {
       </button>
 
       <!-- Menu Overlay -->
-      <div class="menu-overlay" :class="{ active: menuOpen }">
-        <div class="menu-content">
-          <nav>
-            <a href="#about" @click="toggleMenu">About</a>
-            <a href="#contact" @click="toggleMenu">Contact</a>
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" @click="toggleMenu">LinkedIn</a>
+      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView }">
+        <div class="menu-content" :class="{ 'email-mode': emailView }">
+          <nav class="menu-nav" :class="{ hidden: emailView }">
+            <a href="#about">About Me</a>
+            <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="#" @click.prevent="showEmail">Email</a>
           </nav>
+
+          <div class="email-view" :class="{ active: emailView }">
+             <button class="menu-back-btn" @click="hideEmail">
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M19 12H5M12 19l-7-7 7-7"/>
+               </svg>
+               Back
+             </button>
+             <a href="mailto:CoryWBoris@gmail.com" class="email-link">CoryWBoris@gmail.com</a>
+             <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
+          </div>
         </div>
       </div>
 
@@ -606,7 +689,7 @@ const App = {
       </div>
 
       <!-- Scroll indicator -->
-      <div class="scroll-indicator" :class="{ hidden: scrollProgress > 0.05 }">
+      <div class="scroll-indicator" :class="{ hidden: scrollProgress > 0.05, bouncing: isBouncing }">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 5v14M5 12l7 7 7-7"/>
         </svg>

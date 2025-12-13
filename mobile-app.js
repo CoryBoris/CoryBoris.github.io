@@ -90,7 +90,7 @@ const App = {
         logo: 'assets/newsway_project.jpg',
         link: 'newsway.html',
         externalLink: 'https://www.newsway.ai',
-        description: 'NewsWay is a news summary engine which leverages Google\'s Gemini Ai to deliver concise and digestible summaries of the latest breaking news.'
+        description: 'Newsway News Summary is a real-time news summary system utilizing Python RSS parsing via Google Gemini API to summarize breaking news every ten minutes at only the cost of the compute to run which is a simple pipeline script. Utilizing Gemini’s innate Sentiment Analysis combined with a backend promp, I can assign optimism scores to article summaries and as a result articles can be sorted by their optimism scores. Even as an approximate measure, it has proved to reliably separate out events, especially at the extremes.'
       },
       {
         number: '02',
@@ -98,7 +98,7 @@ const App = {
         logo: 'assets/gifsig_project.png',
         link: 'gifsig.html',
         externalLink: 'https://www.gifsig.com',
-        description: 'GifSig is a privacy-first tool for creating animated signature GIFs with zero data collection.'
+        description: 'GifSig High Fiedlity Loop-Once Signature Generator is just that. It is a faster way for someone to paste their actual dynamically drawn signature into an email, with the assurance that it only will play one time and hold at the end. This site was fun to make but also I find myself just scribbling on it a lot for the fun of scribbling. Because the brush implementation is responsive to drawing speed, making realistic looking strokes actually feels natural. This was made with javascript, and Vercel for the hosting and database, and resend for the account email communications and password resets.'
       },
       {
         number: '03',
@@ -106,7 +106,7 @@ const App = {
         logo: 'assets/nadette_project.png',
         link: 'nadette.html',
         externalLink: 'https://github.com/nadette-agent/nadette-adjoint',
-        description: 'Nadette is a phone-based personal assistant you can call to execute tasks using natural voice commands.'
+        description: 'Nadette Ai is a virtual assistant powered by Google Gemini, and it can be called and spoken to with natural language and can execute specific tasks such as multiple emails and texts to different people, making calendar events on both google calendar and icalendar, and the ability to hang up after speaking with the assurance that your last spoken requests are captured, something OpenAi doesn\'t yet do in their call feature for their latest llms. Made with Python, Bash, and Html for the email formatting.'
       },
       {
         number: '04',
@@ -114,7 +114,7 @@ const App = {
         logo: 'assets/TrueAutoColor_project.JPG',
         link: 'trueautocolor.html',
         externalLink: 'https://coryboris.gumroad.com/l/TrueAutoColor',
-        description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names—no plugins required.'
+        description: 'TrueAutoColor is a desktop App made with Electron which interacts with Ableton’s native Api creating real-time track and clip color changes from track name changes within Ableton Live. The reason for this was to solve a pain point for a product which does this exact thing, but only existing as a plugin, taking away precious cpu from music making. 55+ copies sold and counting!'
       }
     ];
 
@@ -338,6 +338,7 @@ const App = {
 
     // Handle wheel events for section-by-section scrolling
     const handleWheel = (e) => {
+      resetBounceTimer();
       if (needsTapToStart.value) {
         e.preventDefault();
         return; // Block scroll if tap-to-start is active
@@ -373,10 +374,12 @@ const App = {
       const delta = touchStartY - touchEndY;
 
       if (delta > 50 && currentSection.value < 4) {
+        resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
       } else if (delta < -50 && currentSection.value > 1) {
+        resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value--;
         playReverse(fromSection, currentSection.value);
@@ -540,20 +543,80 @@ const App = {
 
     const menuOpen = ref(false);
     const menuClosing = ref(false);
+    const emailView = ref(false);
+    const copyButtonText = ref('Copy Address');
+    const isBouncing = ref(true);
+    let bounceTimer = null;
     const projectOverlay = ref(null); // Currently displayed project for overlay
     const overlayState = ref('closed'); // 'closed', 'opening', 'open', 'closing'
     const expandOrigin = ref({ x: 0, y: 0, width: 0, height: 0, logo: '' }); // Logo click position for expand origin
 
+    const resetBounceTimer = () => {
+      isBouncing.value = false;
+      if (bounceTimer) clearTimeout(bounceTimer);
+      bounceTimer = setTimeout(() => {
+        isBouncing.value = true;
+      }, 9000);
+    };
+
     const toggleMenu = () => {
+      resetBounceTimer();
       if (menuOpen.value) {
         // Menu is closing - set closing state and wait for animation
         menuClosing.value = true;
         menuOpen.value = false;
+
+        // If in email view, we close faster (0.5s transition in CSS)
+        // If in main menu, we wait for stagger (1.6s)
+        const closeDuration = emailView.value ? 600 : 1600;
+
         setTimeout(() => {
           menuClosing.value = false;
-        }, 1600); // Start tap-to-play fade-in before hamburger overlay finishes
+          // Reset email view
+          emailView.value = false;
+          copyButtonText.value = 'Copy Address';
+        }, closeDuration);
       } else {
         menuOpen.value = true;
+      }
+    };
+
+    const showEmail = () => {
+      emailView.value = true;
+    };
+
+    const hideEmail = () => {
+      emailView.value = false;
+    };
+
+    const copyEmail = () => {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText('CoryWBoris@gmail.com').then(() => {
+          copyButtonText.value = 'Copied!';
+          setTimeout(() => {
+            copyButtonText.value = 'Copy Address';
+          }, 2000);
+        }).catch(err => {
+          console.error('Copy failed', err);
+        });
+      } else {
+        // Fallback for non-secure contexts
+        const textArea = document.createElement("textarea");
+        textArea.value = 'CoryWBoris@gmail.com';
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          document.execCommand('copy');
+          copyButtonText.value = 'Copied!';
+          setTimeout(() => {
+            copyButtonText.value = 'Copy Address';
+          }, 2000);
+        } catch (err) {
+          console.error('Fallback copy failed', err);
+        }
+        document.body.removeChild(textArea);
       }
     };
 
@@ -625,12 +688,19 @@ const App = {
       menuOpen,
       menuClosing,
       toggleMenu,
+      showEmail,
+      hideEmail,
+      copyEmail,
+      copyButtonText,
+      emailView,
       projectOverlay,
       openProjectOverlay,
       closeProjectOverlay,
       overlayState,
       expandOrigin,
-      expandStyle
+      expandStyle,
+      isBouncing,
+      resetBounceTimer
     };
   },
 
@@ -683,13 +753,25 @@ const App = {
       </button>
 
       <!-- Menu Overlay -->
-      <div class="menu-overlay" :class="{ active: menuOpen }">
-        <div class="menu-content">
-          <nav>
-            <a href="#about" @click="toggleMenu">About</a>
-            <a href="#contact" @click="toggleMenu">Contact</a>
-            <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" @click="toggleMenu">LinkedIn</a>
+      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView }">
+        <div class="menu-content" :class="{ 'email-mode': emailView }">
+          <nav class="menu-nav" :class="{ hidden: emailView }">
+            <a href="#about">About Me</a>
+            <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="#" @click.prevent="showEmail">Email</a>
           </nav>
+
+          <div class="email-view" :class="{ active: emailView }">
+             <button class="menu-back-btn" @click="hideEmail">
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M19 12H5M12 19l-7-7 7-7"/>
+               </svg>
+               Back
+             </button>
+             <a href="mailto:CoryWBoris@gmail.com" class="email-link">CoryWBoris@gmail.com</a>
+             <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
+          </div>
         </div>
       </div>
 
@@ -758,7 +840,7 @@ const App = {
       </div>
 
       <!-- Scroll indicator -->
-      <div class="scroll-indicator" :class="{ hidden: needsTapToStart || scrollProgress > 0.05 }">
+      <div class="scroll-indicator" :class="{ hidden: needsTapToStart || scrollProgress > 0.05, bouncing: isBouncing }">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 5v14M5 12l7 7 7-7"/>
         </svg>
