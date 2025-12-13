@@ -879,13 +879,14 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   width: 100px;
   height: 100px;
   flex-shrink: 0;
-  margin-bottom: 1rem;
-  margin-top: 1rem;
+  margin-bottom: 0;
+  margin-top: 0;
 }
 
 /* Content container */
 .content-inner {
   padding: 2rem;
+  padding-top: 0;
   padding-bottom: 2.5rem; /* Space for button shadow */
   width: 100%;
   min-height: min-content; /* Allow content to determine height, not parent */
@@ -942,27 +943,64 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
 
 
 .project-detail-close {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
+  position: sticky;
+  top: 0.75rem;
+  margin-left: auto;
+  margin-right: 0.75rem;
   width: 40px;
   height: 40px;
-  background: rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(142, 142, 147, 0.65);
   border-radius: 50%;
   color: #1c1c1e;
-  font-size: 1.5rem;
-  line-height: 1;
+  font-size: 0;
+  line-height: 0;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+  margin-top: 0.75rem;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
   z-index: 20; /* Above everything */
 }
 
+ .project-detail-content.open .project-detail-close {
+   opacity: 1;
+   transform: scale(1);
+   pointer-events: auto;
+   visibility: visible;
+   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+ }
+
+ .project-detail-content.closing .project-detail-close {
+   opacity: 0;
+   transform: scale(0.9);
+   pointer-events: none;
+   visibility: hidden;
+   transition:
+     opacity 0.05s linear 0s,
+     transform 0.05s ease 0s,
+     visibility 0s linear 0.05s;
+ }
+
+.project-detail-close::before {
+  content: "×";
+  font-size: 1.6rem;
+  line-height: 1;
+  transform: translate(0.5px, 2.25px);
+}
+
 .project-detail-close:hover {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.38);
   transform: scale(1.1);
 }
 

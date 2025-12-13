@@ -648,13 +648,37 @@ const App = {
 
     const closeProjectOverlay = () => {
       if (overlayState.value === 'closing') return;
-      overlayState.value = 'closing';
 
-      setTimeout(() => {
-        projectOverlay.value = null;
-        overlayState.value = 'closed';
-        isScrollLocked.value = false;
-      }, 650);
+      const performClose = () => {
+        overlayState.value = 'closing';
+        setTimeout(() => {
+          projectOverlay.value = null;
+          overlayState.value = 'closed';
+          isScrollLocked.value = false;
+        }, 650);
+      };
+
+      // Scroll to top before closing so the minimize animation aligns with the logo
+      const contentEl = document.querySelector('.project-detail-content.open');
+      if (contentEl && contentEl.scrollTop > 5) {
+        contentEl.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Wait for scroll to reach top (with timeout safety)
+        let checkCount = 0;
+        const checkScroll = () => {
+          // Stop if at top or after ~60 frames (approx 1s)
+          if (contentEl.scrollTop <= 2 || checkCount > 60) {
+            contentEl.scrollTop = 0;
+            performClose();
+          } else {
+            checkCount++;
+            requestAnimationFrame(checkScroll);
+          }
+        };
+        requestAnimationFrame(checkScroll);
+      } else {
+        performClose();
+      }
     };
 
     const expandStyle = computed(() => {
@@ -817,8 +841,8 @@ const App = {
           >
 
           <!-- Content (fades in after open start) - logo is the animating-logo above -->
+          <button class="project-detail-close" @click="closeProjectOverlay">&times;</button>
           <div class="content-inner" :class="{ visible: overlayState === 'open' }">
-            <button class="project-detail-close" @click="closeProjectOverlay">&times;</button>
             <!-- Logo space placeholder to maintain layout -->
             <div class="project-detail-logo-spacer"></div>
             <h2 class="project-detail-title">{{ projectOverlay.title }}</h2>
