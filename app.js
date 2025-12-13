@@ -8,11 +8,14 @@ const App = {
     const currentSection = ref(1);
     const videoReady = ref(false);
     const windowLoaded = ref(false);
+    const siteLoaded = ref(false);
     let hasStarted = false;
     const showContent = ref(false);
     const exitingSection = ref(null); // Track which section is animating out
     const isReversing = ref(false);
     const videoSwitchReady = ref(true); // Tracks if incoming video is ready to show
+    const initialIntroDone = ref(false);
+    const isScrollLocked = ref(true); // Block scrolls during animation
     const gradientSection = ref(1); // Tracks which gradient to show (CSS handles smooth transition)
     const gradientDuration = ref('1s'); // Duration synced to video segment playback
     const gradientAngle = ref('135deg'); // Angle: 135deg at rest, 180deg during color transition
@@ -25,6 +28,52 @@ const App = {
     // Convert frame number to timestamp
     // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
     const frameToTime = (frame) => (frame / frameRate) + 0.001;
+
+    const forceSettleToStableState = () => {
+      const videoFwd = videoForwardRef.value;
+      const videoRev = videoReverseRef.value;
+
+      // If we got backgrounded mid-transition, ensure UI is interactive again
+      exitingSection.value = null;
+      showContent.value = initialIntroDone.value;
+      videoSwitchReady.value = true;
+      // Re-enable scrolling if intro is done
+      isScrollLocked.value = !initialIntroDone.value;
+
+      // Snap visible video to the freeze frame for the current section
+      const section = currentSection.value;
+      if (isReversing.value) {
+        const freezeFrame = sectionFramesReverse[section]?.[0];
+        if (videoRev && typeof freezeFrame === 'number') {
+          try {
+            videoRev.pause();
+            videoRev.currentTime = frameToTime(freezeFrame);
+          } catch (_) {}
+        }
+      } else {
+        const freezeFrame = sectionFrames[section]?.[1];
+        if (videoFwd && typeof freezeFrame === 'number') {
+          try {
+            videoFwd.pause();
+            videoFwd.currentTime = frameToTime(freezeFrame);
+          } catch (_) {}
+        }
+      }
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden && hasStarted) {
+        forceSettleToStableState();
+      }
+    };
+
+    const onPageShow = (e) => {
+      // Avoid interfering with the initial load (pageshow fires on first load too).
+      // Only force-settle on BFCache restores.
+      if (e && e.persisted) {
+        forceSettleToStableState();
+      }
+    };
 
     // Gradient section is now controlled via data-section attribute on .video-container
     // CSS handles the smooth color interpolation via @property
@@ -86,6 +135,9 @@ const App = {
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
       if (!videoFwd) return;
+      if (isScrollLocked.value) return;
+
+      isScrollLocked.value = true;
 
       // Trigger exit animation on current section
       exitingSection.value = fromSection;
@@ -126,13 +178,16 @@ const App = {
           if (videoFwd.currentTime >= endTime - 0.02) {
             videoFwd.pause();
             videoFwd.currentTime = endTime;
-            // Ensure reverse video is synced for next move
-            const revEndFrame = sectionFramesReverse[targetSection][0];
-            if (videoRev) videoRev.currentTime = frameToTime(revEndFrame);
 
             exitingSection.value = null; // Clear exiting state
             showContent.value = true;
-            enableScrollInput();
+            if (!initialIntroDone.value && fromSection === 0) {
+              initialIntroDone.value = true;
+            }
+            // Delay unlocking to allow content fade-in and prevent rapid re-trigger
+            setTimeout(() => {
+              isScrollLocked.value = false;
+            }, 500);
           } else {
             requestAnimationFrame(checkTime);
           }
@@ -140,29 +195,28 @@ const App = {
         requestAnimationFrame(checkTime);
       };
 
-      // Ensure start position
-      videoFwd.currentTime = startTime;
+      const onSeekReady = () => {
+        // If we are currently showing Reverse, we need to swap
+        if (isReversing.value) {
+          // Mark switch in progress - keeps reverse video visible until forward is ready
+          videoSwitchReady.value = false;
 
-      // If we are currently showing Reverse, we need to swap
-      if (isReversing.value) {
-        // Wait for seek (if needed) and paint before swapping visibility
-        const onReadyToSwap = () => {
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    isReversing.value = false; // Swap to Forward
-                    startPlayback();
-                });
+              videoSwitchReady.value = true;
+              isReversing.value = false; // Swap to Forward
+              startPlayback();
             });
-        };
+          });
+        } else {
+          // Already on Forward, just play
+          startPlayback();
+        }
+      };
 
-        // If we just sought, wait for event. If not, just swap.
-        // Since we set currentTime above, let's assume we might need to wait if it changed significantl
-        // But usually fwd is pre-seeked. We can trust the double-RAF to catch the paint.
-        onReadyToSwap();
-      } else {
-        // Already on Forward, just play
-        startPlayback();
-      }
+      // Ensure start position and wait for seek to complete before playing
+      videoFwd.currentTime = startTime;
+      videoFwd.addEventListener('seeked', onSeekReady, { once: true });
     };
 
     // Play video in reverse (using the reversed video file)
@@ -170,6 +224,9 @@ const App = {
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
       if (!videoRev) return;
+      if (isScrollLocked.value) return;
+
+      isScrollLocked.value = true;
 
       // Trigger exit animation on current section
       exitingSection.value = fromSection;
@@ -213,12 +270,13 @@ const App = {
           if (videoRev.currentTime >= revEndTime - 0.02) {
             videoRev.pause();
             videoRev.currentTime = revEndTime;
-            // Ensure forward video is synced
-            if (videoFwd) videoFwd.currentTime = targetEndTime;
 
             exitingSection.value = null; // Clear exiting state
             showContent.value = true;
-            enableScrollInput();
+            // Delay unlocking to allow content fade-in and prevent rapid re-trigger
+            setTimeout(() => {
+              isScrollLocked.value = false;
+            }, 500);
             // STAY on Reverse video - no swap back!
           } else {
             requestAnimationFrame(checkTime);
@@ -227,92 +285,73 @@ const App = {
         requestAnimationFrame(checkTime);
       };
 
-      // Ensure start position
-      videoRev.currentTime = revStartTime;
+      const onSeekReady = () => {
+        // If we are currently showing Forward (default), we need to swap
+        if (!isReversing.value) {
+          // Mark switch in progress - keeps forward video visible until reverse is ready
+          videoSwitchReady.value = false;
 
-      // If we are currently showing Forward (default), we need to swap
-      if (!isReversing.value) {
-         // We might have just sought videoRev to start time.
-         // Wait for seeked event if we are not confident, or just Paint Wait.
-         // Given we pre-seeked in playForward, we should be close.
-         // But let's be safe and wait for a seeked event if it fires, or timeout.
-
-         const doSwap = () => {
+          requestAnimationFrame(() => {
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    videoSwitchReady.value = true;
-                    isReversing.value = true; // Swap to Reverse
-                    startPlayback();
-                });
+              videoSwitchReady.value = true;
+              isReversing.value = true; // Swap to Reverse
+              startPlayback();
             });
-         };
+          });
+        } else {
+          startPlayback();
+        }
+      };
 
-         // If we are far off, wait for seek.
-         // But usually we are pre-seeked.
-         doSwap();
-      } else {
-        startPlayback();
-      }
+      // Ensure start position and wait for seek to complete before playing
+      videoRev.currentTime = revStartTime;
+      videoRev.addEventListener('seeked', onSeekReady, { once: true });
     };
 
-    // Disable all scroll input during video playback
-    const disableScrollInput = () => {
-      window.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('touchstart', handleTouchStart);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
 
-    // Re-enable scroll input after video completes
-    const enableScrollInput = () => {
-      window.addEventListener('wheel', handleWheel, { passive: false });
-      window.addEventListener('touchstart', handleTouchStart, { passive: true });
-      window.addEventListener('touchend', handleTouchEnd, { passive: true });
-    };
+    // Handle touch events for mobile
+    let touchStartY = 0;
 
-    // Handle wheel events for section-by-section scrolling
-    const handleWheel = (e) => {
+    function handleWheel(e) {
       e.preventDefault();
+      if (isScrollLocked.value) return;
 
       const delta = e.deltaY;
       if (delta > 20 && currentSection.value < 4) {
-        disableScrollInput();
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
       } else if (delta < -20 && currentSection.value > 1) {
-        disableScrollInput();
         const fromSection = currentSection.value;
         currentSection.value--;
         playReverse(fromSection, currentSection.value);
       }
-    };
+    }
 
-    // Handle touch events for mobile
-    let touchStartY = 0;
-    const handleTouchStart = (e) => {
+    function handleTouchStart(e) {
       touchStartY = e.touches[0].clientY;
-    };
+    }
 
-    const handleTouchEnd = (e) => {
+    function handleTouchEnd(e) {
+      if (isScrollLocked.value) return;
+
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
 
       if (delta > 50 && currentSection.value < 4) {
-        disableScrollInput();
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
       } else if (delta < -50 && currentSection.value > 1) {
-        disableScrollInput();
         const fromSection = currentSection.value;
         currentSection.value--;
         playReverse(fromSection, currentSection.value);
       }
-    };
+    }
 
     const scrollToSection = (sectionIndex) => {
       if (sectionIndex === currentSection.value) return;
-      disableScrollInput();
+      if (isScrollLocked.value) return;
       const fromSection = currentSection.value;
       currentSection.value = sectionIndex;
       if (sectionIndex > fromSection) {
@@ -323,10 +362,35 @@ const App = {
     };
 
     const tryStart = () => {
-      if (!hasStarted && videoReady.value && windowLoaded.value) {
+      if (!hasStarted && videoReady.value && windowLoaded.value && siteLoaded.value) {
         hasStarted = true;
-        // Listeners not added yet, so no need to disable - they get added after video completes
-        playForward(0, 1); // From section 0 (start) to section 1
+
+        const initialRevealDelayMs = 650;
+
+        const startInitialPlayback = () => {
+          // Check if we're returning from a project page
+          const returnSection = sessionStorage.getItem('returnToSection');
+          if (returnSection) {
+            sessionStorage.removeItem('returnToSection');
+            const targetSection = parseInt(returnSection, 10);
+            if (targetSection >= 1 && targetSection <= 4) {
+              // Update currentSection BEFORE playing so correct logo shows
+              currentSection.value = targetSection;
+              // Allow programmatic playback to start
+              isScrollLocked.value = false;
+              // Skip initial animation and go directly to the saved section
+              playForward(0, targetSection);
+              return;
+            }
+          }
+
+          // Allow programmatic intro playback to start
+          isScrollLocked.value = false;
+          playForward(0, 1); // From section 0 (start) to section 1
+        };
+
+        // Let the unified CSS fade-in complete so the intro motion is visible.
+        setTimeout(startInitialPlayback, initialRevealDelayMs);
       }
     };
 
@@ -334,24 +398,61 @@ const App = {
       // Prevent default scroll
       document.body.style.overflow = 'hidden';
 
-      // Scroll listeners are NOT added here - they are added by enableScrollInput()
-      // after the initial video animation completes
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      window.addEventListener('pageshow', onPageShow);
+
+      // Add scroll listeners - isScrollLocked flag controls whether they act
+      window.addEventListener('wheel', handleWheel, { passive: false });
+      window.addEventListener('touchstart', handleTouchStart, { passive: true });
+      window.addEventListener('touchend', handleTouchEnd, { passive: true });
 
       // Initialize both videos
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
 
-      let loadedCount = 0;
+      // Track all assets that need to load
+      let videosLoaded = 0;
+      let imagesLoaded = 0;
+      const totalVideos = 2;
+      const totalImages = projects.length;
+
+      const checkAllAssetsLoaded = () => {
+        if (videosLoaded === totalVideos && imagesLoaded === totalImages) {
+          siteLoaded.value = true;
+          tryStart();
+        }
+      };
+
       const onVideoReady = () => {
-        loadedCount++;
-        if (loadedCount === 2) {
+        videosLoaded++;
+        if (videosLoaded === 2) {
           console.log('Both videos loaded');
           videoReady.value = true;
           videoFwd.currentTime = 0;
           videoRev.currentTime = frameToTime(totalFrames); // End of reverse = start of forward
           tryStart();
         }
+        checkAllAssetsLoaded();
       };
+
+      // Preload all project images
+      projects.forEach((project) => {
+        if (project.logo) {
+          const img = new Image();
+          img.onload = () => {
+            imagesLoaded++;
+            checkAllAssetsLoaded();
+          };
+          img.onerror = () => {
+            imagesLoaded++;
+            checkAllAssetsLoaded();
+          };
+          img.src = project.logo;
+        } else {
+          imagesLoaded++;
+          checkAllAssetsLoaded();
+        }
+      });
 
       const onWindowLoad = () => {
         windowLoaded.value = true;
@@ -385,11 +486,19 @@ const App = {
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
       window.removeEventListener('load', onWindowLoad);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pageshow', onPageShow);
     });
 
     const menuOpen = ref(false);
     const toggleMenu = () => {
       menuOpen.value = !menuOpen.value;
+    };
+
+    const handleProjectClick = (project, sectionIndex) => {
+      // Save current section to sessionStorage before navigating
+      sessionStorage.setItem('returnToSection', sectionIndex.toString());
+      window.location.href = project.link;
     };
 
     return {
@@ -408,13 +517,15 @@ const App = {
       isReversing,
       videoSwitchReady,
       videoReady,
+      siteLoaded,
       menuOpen,
-      toggleMenu
+      toggleMenu,
+      handleProjectClick
     };
   },
 
   template: `
-    <div class="scroll-container">
+    <div class="scroll-container" :class="{ 'site-loaded': siteLoaded }">
       <!-- Progress bar -->
       <div class="progress-bar" :style="{ width: (scrollProgress * 100) + '%' }"></div>
 
@@ -426,8 +537,8 @@ const App = {
           muted
           playsinline
           preload="auto"
-          :class="{ 'video-active': !isReversing, 'video-hidden': isReversing && videoSwitchReady, 'video-switching': isReversing && !videoSwitchReady }"
-          :style="{ opacity: videoReady ? null : 0 }"
+          :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady }"
+          :style="{ opacity: (videoReady && siteLoaded) ? null : 0 }"
         >
           <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
         </video>
@@ -437,8 +548,8 @@ const App = {
           muted
           playsinline
           preload="auto"
-          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !isReversing, 'video-switching': isReversing && !videoSwitchReady }"
-          :style="{ opacity: videoReady ? null : 0 }"
+          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady) }"
+          :style="{ opacity: (videoReady && siteLoaded) ? null : 0 }"
         >
           <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
         </video>
@@ -475,11 +586,11 @@ const App = {
           class="section-content"
           :class="['section-' + (index + 1), { active: currentSection === index + 1 && showContent, exiting: exitingSection === index + 1 }]"
         >
-          <a :href="project.link" class="project-link">
+          <div class="project-link" @click="handleProjectClick(project, index + 1)">
             <img v-if="project.logo" :src="project.logo" :alt="project.title" class="project-logo">
             <h2 v-else>{{ project.title }}</h2>
             <div class="project-tooltip">{{ project.description }}</div>
-          </a>
+          </div>
         </div>
       </div>
 

@@ -1,6 +1,18 @@
 /* Mobile-specific styles */
 /* Based on old mobile version with tap-to-start support */
 
+/* Site loading - hide all UI until assets are loaded */
+.scroll-container:not(.site-loaded) .header-title,
+.scroll-container:not(.site-loaded) .hamburger-btn,
+.scroll-container:not(.site-loaded) .content-overlay,
+.scroll-container:not(.site-loaded) .section-dots,
+.scroll-container:not(.site-loaded) .scroll-indicator,
+.scroll-container:not(.site-loaded) .tap-to-start,
+.scroll-container:not(.site-loaded) .menu-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* CSS Custom Properties for smooth gradient interpolation */
 @property --gradient-color-1 {
   syntax: '<color>';
@@ -286,6 +298,7 @@ html, body {
   display: block;
   text-decoration: none;
   transition: transform 0.3s ease;
+  cursor: pointer;
 }
 
 .project-link:hover {
@@ -561,3 +574,311 @@ html, body {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.1); opacity: 0.8; }
 }
+
+/* Hide hamburger when project overlay is visible */
+body:has(.project-detail-overlay.opening) .hamburger-btn,
+body:has(.project-detail-overlay.open) .hamburger-btn {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Pause scroll indicator animation when project overlay is open */
+body:has(.project-detail-overlay.opening) .scroll-indicator,
+body:has(.project-detail-overlay.open) .scroll-indicator {
+  animation-play-state: paused;
+  opacity: 0;
+}
+
+/* Project Detail Overlay (Mobile) */
+.project-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.5s ease;
+  /* Allow clicking through to close if we click the backdrop */
+}
+
+.project-detail-overlay.opening,
+.project-detail-overlay.open {
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.project-detail-overlay.closing {
+  background: transparent;
+}
+
+.project-detail-content {
+  position: fixed;
+  /* Start at origin (center of clicked item) */
+  left: var(--origin-x);
+  top: var(--origin-y);
+  width: var(--origin-width);
+  height: var(--origin-height);
+  transform: translate(-50%, -50%);
+
+  background: #f2f2f7;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+
+  overflow: hidden; /* Hide scrollbars during animation */
+  z-index: 10;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+
+  /* Layout for content */
+  display: flex;
+  flex-direction: column;
+}
+
+/* State: Opening */
+.project-detail-content.opening {
+  animation: expandMatte 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* State: Open */
+.project-detail-content.open {
+  /* Final state */
+  left: 50%;
+  top: 50%;
+  width: 85vw;
+  height: 70vh;
+  max-width: 400px;
+  border-radius: 20px;
+  overflow-y: auto; /* Enable scrolling */
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; /* Re-enable touch scrolling */
+}
+
+/* State: Closing */
+.project-detail-content.closing {
+  /* Start from open state */
+  left: 50%;
+  top: 50%;
+  width: 85vw;
+  height: 70vh;
+  max-width: 400px;
+  border-radius: 20px;
+
+  /* Delay so logo shrinks first */
+  animation: collapseMatte 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) 0.1s forwards;
+}
+
+/* Animating Logo - THE logo, starts at origin, pops into final position, stays visible */
+.animating-logo {
+  position: absolute;
+  /* Start centered at top, fixed origin size */
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--origin-width);
+  height: var(--origin-height);
+  object-fit: cover;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.animating-logo.opening {
+  /* Animate from origin size to final position - delayed so matte expands first */
+  animation: logoPopIntoPlace 0.6s cubic-bezier(0.25, 0.1, 0.25, 1) 0.1s forwards;
+}
+
+.animating-logo.open {
+  /* Stay at final position */
+  top: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 100px;
+  object-fit: contain; /* Contain at final size to show full logo */
+  border-radius: 16px;
+}
+
+.animating-logo.closing {
+  /* Animate back - smooth ease-out */
+  animation: logoPopBack 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
+}
+
+/* Logo stays centered, moves gently down and expands */
+@keyframes logoPopIntoPlace {
+  0% {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--origin-width);
+    height: var(--origin-height);
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  100% {
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 14px;
+  }
+}
+
+/* Logo moves straight up and shrinks back - stays centered */
+@keyframes logoPopBack {
+  0% {
+    top: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    border-radius: 14px;
+  }
+  100% {
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: var(--origin-width);
+    height: var(--origin-height);
+    object-fit: cover;
+    border-radius: 10px;
+  }
+}
+
+/* Spacer to maintain layout where the logo visually appears */
+.project-detail-logo-spacer {
+  width: 100px;
+  height: 100px;
+  flex-shrink: 0;
+  margin-bottom: 1rem;
+  margin-top: 1rem;
+}
+
+/* Content container */
+.content-inner {
+  padding: 2rem;
+  width: 100%;
+  height: 100%; /* Ensure it fills for scrolling */
+  box-sizing: border-box;
+  opacity: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* Allow content to scroll */
+  transition: opacity 0.2s ease; /* Smooth fade out on close */
+}
+
+.content-inner.visible {
+  opacity: 1;
+  /* Fade in slightly delayed */
+  transition: opacity 0.4s ease 0.15s;
+}
+
+/* Keyframes */
+@keyframes expandMatte {
+  0% {
+    left: var(--origin-x);
+    top: var(--origin-y);
+    width: var(--origin-width);
+    height: var(--origin-height);
+    border-radius: 10px;
+  }
+  100% {
+    left: 50%;
+    top: 50%;
+    width: 85vw;
+    height: 70vh;
+    border-radius: 20px;
+  }
+}
+
+@keyframes collapseMatte {
+  0% {
+    left: 50%;
+    top: 50%;
+    width: 85vw;
+    height: 70vh;
+    border-radius: 20px;
+  }
+  100% {
+    left: var(--origin-x);
+    top: var(--origin-y);
+    width: var(--origin-width);
+    height: var(--origin-height);
+    border-radius: 10px;
+  }
+}
+
+/* fadeOutLogo and fadeInLogo removed - single logo stays visible throughout */
+
+
+.project-detail-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 40px;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  color: #1c1c1e;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  z-index: 20; /* Above everything */
+}
+
+.project-detail-close:hover {
+  background: rgba(0, 0, 0, 0.1);
+  transform: scale(1.1);
+}
+
+/* project-detail-logo is now replaced by animating-logo + spacer */
+
+.project-detail-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1c1c1e;
+  margin-bottom: 1rem;
+  text-shadow: none;
+}
+
+.project-detail-description {
+  font-size: 1rem;
+  color: #3a3a3c;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  text-shadow: none;
+}
+
+.project-detail-link {
+  display: inline-block;
+  padding: 0.8rem 2rem;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 30px;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+  flex-shrink: 0; /* Don't shrink */
+  margin-bottom: 2rem;
+}
+
+.project-detail-link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 30px rgba(102, 126, 234, 0.5);
+}
+
+

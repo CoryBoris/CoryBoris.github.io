@@ -1,3 +1,14 @@
+/* Site loading - hide all UI until assets are loaded */
+.scroll-container:not(.site-loaded) {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-container.site-loaded {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* CSS Custom Properties for smooth gradient interpolation */
 @property --gradient-color-1 {
   syntax: '<color>';
@@ -32,6 +43,7 @@
 html, body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   overflow-x: hidden;
+  background: #000;
 }
 
 /* Scroll container */
@@ -40,6 +52,8 @@ html, body {
   width: 100vw;
   position: relative;
   overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.6s ease-out;
 }
 
 /* Fixed video background */
@@ -138,8 +152,8 @@ html, body {
 
 /* During switch: keep current video visible while new one seeks */
 .video-container video.video-switching {
-  opacity: 0;
-  z-index: 1;
+  opacity: 1;
+  z-index: 2;
 }
 
 /* Content overlay */
@@ -256,6 +270,7 @@ html, body {
   display: block;
   text-decoration: none;
   position: relative;
+  cursor: pointer;
 }
 
 .project-logo {

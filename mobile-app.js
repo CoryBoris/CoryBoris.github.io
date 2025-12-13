@@ -11,6 +11,7 @@ const App = {
     const currentSection = ref(1);
     const videoReady = ref(false);
     const windowLoaded = ref(false);
+    const siteLoaded = ref(false);
     let hasStarted = false;
     const isScrollLocked = ref(false);
     const showContent = ref(false);
@@ -31,6 +32,53 @@ const App = {
     // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
     const frameToTime = (frame) => (frame / frameRate) + 0.001;
 
+    const forceSettleToStableState = () => {
+      if (needsTapToStart.value) return;
+
+      const videoFwd = videoForwardRef.value;
+      const videoRev = videoReverseRef.value;
+
+      // Ensure we are not stuck mid-transition (iOS/Chrome throttles RAF when backgrounded)
+      isScrollLocked.value = false;
+      exitingSection.value = null;
+      showContent.value = true;
+      videoSwitchReady.value = true;
+
+      // Snap the currently visible video to the correct freeze frame for currentSection
+      const section = currentSection.value;
+      if (isReversing.value) {
+        const freezeFrame = sectionFramesReverse[section]?.[0];
+        if (videoRev && typeof freezeFrame === 'number') {
+          try {
+            videoRev.pause();
+            videoRev.currentTime = frameToTime(freezeFrame);
+          } catch (_) {}
+        }
+      } else {
+        const freezeFrame = sectionFrames[section]?.[1];
+        if (videoFwd && typeof freezeFrame === 'number') {
+          try {
+            videoFwd.pause();
+            videoFwd.currentTime = frameToTime(freezeFrame);
+          } catch (_) {}
+        }
+      }
+
+      // Mark both videos as "ready" again for any CSS that depends on these flags
+      forwardVideoReady.value = true;
+      reverseVideoReady.value = true;
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        forceSettleToStableState();
+      }
+    };
+
+    const onPageShow = () => {
+      forceSettleToStableState();
+    };
+
     // Gradient section is now controlled via data-section attribute on .video-container
     // CSS handles the smooth color interpolation via @property
 
@@ -41,6 +89,7 @@ const App = {
         title: 'Newsway',
         logo: 'assets/newsway_project.jpg',
         link: 'newsway.html',
+        externalLink: 'https://www.newsway.ai',
         description: 'NewsWay is a news summary engine which leverages Google\'s Gemini Ai to deliver concise and digestible summaries of the latest breaking news.'
       },
       {
@@ -48,6 +97,7 @@ const App = {
         title: 'GifSig',
         logo: 'assets/gifsig_project.png',
         link: 'gifsig.html',
+        externalLink: 'https://www.gifsig.com',
         description: 'GifSig is a privacy-first tool for creating animated signature GIFs with zero data collection.'
       },
       {
@@ -55,6 +105,7 @@ const App = {
         title: 'Nadette',
         logo: 'assets/nadette_project.png',
         link: 'nadette.html',
+        externalLink: 'https://www.nadette.ai',
         description: 'Nadette is a phone-based personal assistant you can call to execute tasks using natural voice commands.'
       },
       {
@@ -62,6 +113,7 @@ const App = {
         title: 'TrueAutoColor',
         logo: 'assets/TrueAutoColor_project.JPG',
         link: 'trueautocolor.html',
+        externalLink: 'https://www.trueautocolor.com',
         description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names—no plugins required.'
       }
     ];
@@ -286,9 +338,13 @@ const App = {
 
     // Handle wheel events for section-by-section scrolling
     const handleWheel = (e) => {
-      e.preventDefault();
-      if (needsTapToStart.value) return; // Block scroll if tap-to-start is active
-      if (isScrollLocked.value) return;
+      if (needsTapToStart.value) {
+        e.preventDefault();
+        return; // Block scroll if tap-to-start is active
+      }
+      if (isScrollLocked.value) return; // Allow default scroll (for overlay), skip custom nav
+
+      e.preventDefault(); // Prevent default only when handling custom section nav
 
       const delta = e.deltaY;
       if (delta > 20 && currentSection.value < 4) {
@@ -393,6 +449,11 @@ const App = {
       // Prevent default scroll
       document.body.style.overflow = 'hidden';
 
+      // iOS/Chrome: when the tab/app is backgrounded, RAF loops can stop mid-transition.
+      // On resume, force-settle back to a stable state so the page is interactive.
+      document.addEventListener('visibilitychange', onVisibilityChange);
+      window.addEventListener('pageshow', onPageShow);
+
       // Add wheel listener with passive: false to allow preventDefault
       window.addEventListener('wheel', handleWheel, { passive: false });
       window.addEventListener('touchstart', handleTouchStart, { passive: true });
@@ -402,14 +463,45 @@ const App = {
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
 
-      let loadedCount = 0;
+      // Track all assets that need to load
+      let videosLoaded = 0;
+      let imagesLoaded = 0;
+      const totalVideos = 2;
+      const totalImages = projects.length;
+
+      const checkAllAssetsLoaded = () => {
+        if (videosLoaded === totalVideos && imagesLoaded === totalImages) {
+          siteLoaded.value = true;
+        }
+      };
+
       const onVideoReady = () => {
-        loadedCount++;
-        if (loadedCount === 2) {
+        videosLoaded++;
+        if (videosLoaded === 2) {
           videoReady.value = true;
           tryStart();
         }
+        checkAllAssetsLoaded();
       };
+
+      // Preload all project images
+      projects.forEach((project) => {
+        if (project.logo) {
+          const img = new Image();
+          img.onload = () => {
+            imagesLoaded++;
+            checkAllAssetsLoaded();
+          };
+          img.onerror = () => {
+            imagesLoaded++;
+            checkAllAssetsLoaded();
+          };
+          img.src = project.logo;
+        } else {
+          imagesLoaded++;
+          checkAllAssetsLoaded();
+        }
+      });
 
       const onWindowLoad = () => {
         windowLoaded.value = true;
@@ -442,10 +534,16 @@ const App = {
       window.removeEventListener('wheel', handleWheel);
       window.removeEventListener('touchstart', handleTouchStart);
       window.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('pageshow', onPageShow);
     });
 
     const menuOpen = ref(false);
     const menuClosing = ref(false);
+    const projectOverlay = ref(null); // Currently displayed project for overlay
+    const overlayState = ref('closed'); // 'closed', 'opening', 'open', 'closing'
+    const expandOrigin = ref({ x: 0, y: 0, width: 0, height: 0, logo: '' }); // Logo click position for expand origin
+
     const toggleMenu = () => {
       if (menuOpen.value) {
         // Menu is closing - set closing state and wait for animation
@@ -458,6 +556,52 @@ const App = {
         menuOpen.value = true;
       }
     };
+
+    const openProjectOverlay = (project, event) => {
+      // Get the logo element's position for the expand animation
+      const logoEl = event.currentTarget.querySelector('.project-logo');
+      if (logoEl) {
+        const rect = logoEl.getBoundingClientRect();
+        expandOrigin.value = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height,
+          logo: project.logo
+        };
+      }
+
+      isScrollLocked.value = true;
+      projectOverlay.value = project;
+      overlayState.value = 'opening';
+
+      // Allow a frame for render before starting animation if needed,
+      // but CSS keyframes handle it.
+      // We just need to switch to 'open' after animation.
+      setTimeout(() => {
+        overlayState.value = 'open';
+      }, 650);
+    };
+
+    const closeProjectOverlay = () => {
+      if (overlayState.value === 'closing') return;
+      overlayState.value = 'closing';
+
+      setTimeout(() => {
+        projectOverlay.value = null;
+        overlayState.value = 'closed';
+        isScrollLocked.value = false;
+      }, 650);
+    };
+
+    const expandStyle = computed(() => {
+      return {
+        '--origin-x': expandOrigin.value.x + 'px',
+        '--origin-y': expandOrigin.value.y + 'px',
+        '--origin-width': expandOrigin.value.width + 'px',
+        '--origin-height': expandOrigin.value.height + 'px'
+      };
+    });
 
     return {
       videoForwardRef,
@@ -474,17 +618,24 @@ const App = {
       isReversing,
       videoSwitchReady,
       videoReady,
+      siteLoaded,
       needsTapToStart,
       handleTapToStart,
       initialFadeComplete,
       menuOpen,
       menuClosing,
-      toggleMenu
+      toggleMenu,
+      projectOverlay,
+      openProjectOverlay,
+      closeProjectOverlay,
+      overlayState,
+      expandOrigin,
+      expandStyle
     };
   },
 
   template: `
-    <div class="scroll-container">
+    <div class="scroll-container" :class="{ 'site-loaded': siteLoaded }">
       <!-- Progress bar -->
       <div class="progress-bar" :style="{ width: (scrollProgress * 100) + '%' }"></div>
 
@@ -544,7 +695,7 @@ const App = {
 
       <!-- Header -->
       <div class="header-title">
-        <h1>Cory's Portfolio</h1>
+        <h1>Cory Boris</h1>
       </div>
 
       <!-- Content overlay -->
@@ -555,10 +706,43 @@ const App = {
           class="section-content"
           :class="['section-' + (index + 1), { active: currentSection === index + 1 && showContent, exiting: exitingSection === index + 1 }]"
         >
-          <a :href="project.link" class="project-link">
+          <div class="project-link" @click="openProjectOverlay(project, $event)">
             <img v-if="project.logo" :src="project.logo" :alt="project.title" class="project-logo">
             <h2 v-else>{{ project.title }}</h2>
-          </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Detail Overlay (Mobile) -->
+      <div
+        v-if="projectOverlay"
+        class="project-detail-overlay"
+        :class="overlayState"
+        @click.self="closeProjectOverlay"
+      >
+        <!-- The Content Card IS the unified matte -->
+        <div
+          class="project-detail-content"
+          :class="overlayState"
+          :style="expandStyle"
+        >
+          <!-- Single Animating Logo - stays visible throughout, no swap -->
+          <img
+            v-if="expandOrigin.logo"
+            :src="expandOrigin.logo"
+            class="animating-logo"
+            :class="overlayState"
+          >
+
+          <!-- Content (fades in after open start) - logo is the animating-logo above -->
+          <div class="content-inner" :class="{ visible: overlayState === 'open' }">
+            <button class="project-detail-close" @click="closeProjectOverlay">&times;</button>
+            <!-- Logo space placeholder to maintain layout -->
+            <div class="project-detail-logo-spacer"></div>
+            <h2 class="project-detail-title">{{ projectOverlay.title }}</h2>
+            <p class="project-detail-description">{{ projectOverlay.description }}</p>
+            <a :href="projectOverlay.externalLink" class="project-detail-link" target="_blank" rel="noopener noreferrer">View Project</a>
+          </div>
         </div>
       </div>
 
