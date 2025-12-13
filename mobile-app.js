@@ -105,7 +105,7 @@ const App = {
         title: 'Nadette',
         logo: 'assets/nadette_project.png',
         link: 'nadette.html',
-        externalLink: 'https://www.nadette.ai',
+        externalLink: 'https://github.com/nadette-agent/nadette-adjoint',
         description: 'Nadette is a phone-based personal assistant you can call to execute tasks using natural voice commands.'
       },
       {
