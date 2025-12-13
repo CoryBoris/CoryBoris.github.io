@@ -113,7 +113,7 @@ const App = {
         title: 'TrueAutoColor',
         logo: 'assets/TrueAutoColor_project.JPG',
         link: 'trueautocolor.html',
-        externalLink: 'https://www.trueautocolor.com',
+        externalLink: 'https://coryboris.gumroad.com/l/TrueAutoColor',
         description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names—no plugins required.'
       }
     ];
