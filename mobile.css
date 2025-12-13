@@ -617,12 +617,12 @@ html, body {
   position: absolute;
   top: -50px; /* Position above the email */
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 6px));
 }
 
 .menu-back-btn:active {
   color: white;
-  transform: translateX(-50%) scale(0.95);
+  transform: translateX(calc(-50% - 6px)) scale(0.95);
 }
 
 .menu-back-btn svg {
@@ -888,7 +888,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   padding: 2rem;
   padding-top: 0;
   padding-bottom: 2.5rem; /* Space for button shadow */
-  width: 100%;
+  width: min(85vw, 400px);
   min-height: min-content; /* Allow content to determine height, not parent */
   box-sizing: border-box;
   opacity: 0;
@@ -900,8 +900,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
 
 .content-inner.visible {
   opacity: 1;
-  /* Fade in slightly delayed */
-  transition: opacity 0.4s ease 0.15s;
+  transition: opacity 0.2s ease;
 }
 
 /* Keyframes */

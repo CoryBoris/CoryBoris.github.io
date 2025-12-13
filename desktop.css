@@ -579,7 +579,7 @@ html, body {
   position: absolute;
   top: -60px; /* Position above the email */
   left: 50%;
-  transform: translateX(-50%);
+  transform: translateX(calc(-50% - 8px));
 }
 
 .menu-back-btn:hover {

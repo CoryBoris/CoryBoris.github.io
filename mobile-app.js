@@ -643,7 +643,7 @@ const App = {
       // We just need to switch to 'open' after animation.
       setTimeout(() => {
         overlayState.value = 'open';
-      }, 650);
+      }, 470);
     };
 
     const closeProjectOverlay = () => {
