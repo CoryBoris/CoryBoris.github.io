@@ -575,7 +575,7 @@ const App = {
 
       <!-- Header -->
       <div class="header-title">
-        <h1>Cory's Portfolio</h1>
+        <h1>Cory Boris</h1>
       </div>
 
       <!-- Content overlay -->
