@@ -180,10 +180,12 @@ const App = {
       }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
-        videoFwd.play();
+        // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
+        // This gives us full control and avoids mobile decoder issues
+        const duration = actualDuration * 1000; // in ms
+        const animStartTime = performance.now();
 
         // PRE-BUFFER reverse video while forward plays
-        // DELAY this seek to ensure videoRev is fully hidden (opacity applied) before scrubbing
         setTimeout(() => {
           const revEndFrame = sectionFramesReverse[targetSection][0];
           reverseTargetTime = frameToTime(revEndFrame);
@@ -196,29 +198,26 @@ const App = {
           }
         }, 100);
 
-        const checkTime = () => {
-          if (videoFwd.currentTime >= endTime - 0.02) {
-            videoFwd.pause();
+        const animateFrame = () => {
+          const elapsed = performance.now() - animStartTime;
+          const progress = Math.min(elapsed / duration, 1);
+
+          // Interpolate currentTime from startTime to endTime
+          const currentTime = startTime + (progress * (endTime - startTime));
+          videoFwd.currentTime = currentTime;
+
+          if (progress < 1) {
+            requestAnimationFrame(animateFrame);
+          } else {
+            // Animation complete
             videoFwd.currentTime = endTime;
             isScrollLocked.value = false;
-            exitingSection.value = null; // Clear exiting state
+            exitingSection.value = null;
             showContent.value = true;
-          } else {
-            requestAnimationFrame(checkTime);
           }
         };
-
-        // Seek first, then play after seek completes
-        const onSeeked = () => {
-            // Wait for paint if we just swapped
-            requestAnimationFrame(checkTime);
-        };
-        // We are already playing, checkTime handles the loop
-        requestAnimationFrame(checkTime);
+        requestAnimationFrame(animateFrame);
       };
-
-      // Ensure start position and wait for seek to complete before playing
-      videoFwd.currentTime = startTime;
 
       const onSeekReady = () => {
         // If we are currently showing Reverse, we need to swap
@@ -238,8 +237,18 @@ const App = {
         }
       };
 
-      // Wait for seek to complete before starting playback
-      videoFwd.addEventListener('seeked', onSeekReady, { once: true });
+      // Check if we're already at the correct position (within 0.1s tolerance)
+      // This avoids unnecessary seek delays when continuing in the same direction
+      const alreadyAtPosition = Math.abs(videoFwd.currentTime - startTime) < 0.1;
+
+      if (alreadyAtPosition && !isReversing.value) {
+        // Already at correct position and in forward mode - start immediately
+        onSeekReady();
+      } else {
+        // Need to seek - wait for seek to complete before starting playback
+        videoFwd.currentTime = startTime;
+        videoFwd.addEventListener('seeked', onSeekReady, { once: true });
+      }
     };
 
     // Play video in reverse (using the reversed video file)
@@ -264,6 +273,22 @@ const App = {
       const revEndTime = frameToTime(revEndFrame);
       const targetEndTime = frameToTime(targetEndFrame);
 
+      // DIAGNOSTIC: Log video state at start of transition
+      const getBufferedRanges = (video) => {
+        const ranges = [];
+        for (let i = 0; i < video.buffered.length; i++) {
+          ranges.push(`${video.buffered.start(i).toFixed(2)}-${video.buffered.end(i).toFixed(2)}`);
+        }
+        return ranges.join(', ') || 'none';
+      };
+      console.log(`[DIAG] playReverse ${fromSection}→${targetSection}`);
+      console.log(`[DIAG] revStartTime: ${revStartTime.toFixed(3)}, revEndTime: ${revEndTime.toFixed(3)}`);
+      console.log(`[DIAG] videoRev.currentTime: ${videoRev.currentTime.toFixed(3)}`);
+      console.log(`[DIAG] videoRev.readyState: ${videoRev.readyState}`);
+      console.log(`[DIAG] videoRev.paused: ${videoRev.paused}`);
+      console.log(`[DIAG] videoRev.buffered: ${getBufferedRanges(videoRev)}`);
+      console.log(`[DIAG] isReversing: ${isReversing.value}`);
+
       const segmentLength = revEndTime - revStartTime;
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoRev.playbackRate = playbackRate;
@@ -281,10 +306,12 @@ const App = {
       }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
-        videoRev.play();
+        // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
+        // This gives us full control and avoids mobile decoder issues
+        const duration = actualDuration * 1000; // in ms
+        const startTime = performance.now();
 
-        // NOW pre-buffer forward video while reverse plays (forward is hidden now)
-        // DELAY this seek slightly to ensure forward video is fully hidden
+        // Pre-buffer forward video for next transition
         setTimeout(() => {
             forwardVideoReady.value = false;
             forwardTargetTime = targetEndTime;
@@ -294,26 +321,32 @@ const App = {
             }, { once: true });
         }, 100);
 
-        const checkTime = () => {
-          if (videoRev.currentTime >= revEndTime - 0.02) {
-            videoRev.pause();
-            videoRev.currentTime = revEndTime;
+        const animateFrame = () => {
+          const elapsed = performance.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
 
-            isScrollLocked.value = false;
-            exitingSection.value = null; // Clear exiting state
-            showContent.value = true;
-            // STAY on Reverse video - no swap back!
+          // Interpolate currentTime from revStartTime to revEndTime
+          const currentTime = revStartTime + (progress * (revEndTime - revStartTime));
+          videoRev.currentTime = currentTime;
+
+          if (progress < 1) {
+            requestAnimationFrame(animateFrame);
           } else {
-            requestAnimationFrame(checkTime);
+            // Animation complete
+            videoRev.currentTime = revEndTime;
+            isScrollLocked.value = false;
+            exitingSection.value = null;
+            showContent.value = true;
           }
         };
-        requestAnimationFrame(checkTime);
+        requestAnimationFrame(animateFrame);
       };
 
-      // Ensure start position and wait for seek to complete before playing
-      videoRev.currentTime = revStartTime;
-
       const onSeekReady = () => {
+        console.log(`[DIAG] onSeekReady called`);
+        console.log(`[DIAG] videoRev.currentTime after seek: ${videoRev.currentTime.toFixed(3)}`);
+        console.log(`[DIAG] isReversing: ${isReversing.value}`);
+
         // If we are currently showing Forward (default), we need to swap
         if (!isReversing.value) {
           // Mark switch in progress - keeps forward video visible until reverse is ready
@@ -332,8 +365,24 @@ const App = {
         }
       };
 
-      // Wait for seek to complete before starting playback
-      videoRev.addEventListener('seeked', onSeekReady, { once: true });
+      // Check if we're already at the correct position (within 0.1s tolerance)
+      // This avoids unnecessary seek delays when continuing in the same direction
+      const alreadyAtPosition = Math.abs(videoRev.currentTime - revStartTime) < 0.1;
+      console.log(`[DIAG] alreadyAtPosition: ${alreadyAtPosition} (diff: ${Math.abs(videoRev.currentTime - revStartTime).toFixed(3)})`);
+
+      // MOBILE FIX: Always seek AND add delay for decoder to initialize
+      // Mobile video decoders need time to "warm up" after seeking
+      console.log(`[DIAG] Seeking to ${revStartTime.toFixed(3)}`);
+      const seekStartTime = performance.now();
+      videoRev.currentTime = revStartTime;
+      videoRev.addEventListener('seeked', () => {
+        console.log(`[DIAG] Seek completed in ${(performance.now() - seekStartTime).toFixed(0)}ms`);
+        // Wait for decoder to fully initialize before playing
+        setTimeout(() => {
+          console.log(`[DIAG] Decoder warmup complete, starting playback`);
+          onSeekReady();
+        }, 50);
+      }, { once: true });
     };
 
     // Handle wheel events for section-by-section scrolling
