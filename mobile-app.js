@@ -28,6 +28,12 @@ const App = {
     const frameRate = 24;
     const totalFrames = 240; // 10 seconds * 24 fps
 
+    // Track current animation to prevent race conditions
+    let currentAnimationId = null;
+    // Track CSS transition listener to remove if new animation starts
+    let currentTransitionListener = null;
+    let currentTransitionElement = null;
+
     // Convert frame number to timestamp
     // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
     const frameToTime = (frame) => (frame / frameRate) + 0.001;
@@ -180,8 +186,18 @@ const App = {
       }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
+        // Cancel any existing animation AND transition listener to prevent race conditions
+        if (currentAnimationId) {
+          cancelAnimationFrame(currentAnimationId);
+          currentAnimationId = null;
+        }
+        if (currentTransitionListener && currentTransitionElement) {
+          currentTransitionElement.removeEventListener('transitionend', currentTransitionListener);
+          currentTransitionListener = null;
+          currentTransitionElement = null;
+        }
+
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
-        // This gives us full control and avoids mobile decoder issues
         const duration = actualDuration * 1000; // in ms
         const animStartTime = performance.now();
 
@@ -207,16 +223,35 @@ const App = {
           videoFwd.currentTime = currentTime;
 
           if (progress < 1) {
-            requestAnimationFrame(animateFrame);
+            currentAnimationId = requestAnimationFrame(animateFrame);
           } else {
-            // Animation complete
+            // Animation complete - set final frame
+            currentAnimationId = null;
             videoFwd.currentTime = endTime;
-            isScrollLocked.value = false;
             exitingSection.value = null;
             showContent.value = true;
+            // Listen for actual CSS transitionend - no guessing
+            const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
+            if (sectionEl) {
+              const onTransitionEnd = (e) => {
+                // Only unlock on opacity transition (the main visibility transition)
+                if (e.propertyName === 'opacity') {
+                  sectionEl.removeEventListener('transitionend', onTransitionEnd);
+                  currentTransitionListener = null;
+                  currentTransitionElement = null;
+                  isScrollLocked.value = false;
+                }
+              };
+              currentTransitionListener = onTransitionEnd;
+              currentTransitionElement = sectionEl;
+              sectionEl.addEventListener('transitionend', onTransitionEnd);
+            } else {
+              // Fallback if element not found
+              isScrollLocked.value = false;
+            }
           }
         };
-        requestAnimationFrame(animateFrame);
+        currentAnimationId = requestAnimationFrame(animateFrame);
       };
 
       const onSeekReady = () => {
@@ -238,16 +273,17 @@ const App = {
       };
 
       // Check if we're already at the correct position (within 0.1s tolerance)
-      // This avoids unnecessary seek delays when continuing in the same direction
       const alreadyAtPosition = Math.abs(videoFwd.currentTime - startTime) < 0.1;
 
       if (alreadyAtPosition && !isReversing.value) {
-        // Already at correct position and in forward mode - start immediately
-        onSeekReady();
+        // Already at position - wait one frame for decoder to be ready
+        requestAnimationFrame(() => onSeekReady());
       } else {
-        // Need to seek - wait for seek to complete before starting playback
+        // Need to seek - wait for seek + one frame
         videoFwd.currentTime = startTime;
-        videoFwd.addEventListener('seeked', onSeekReady, { once: true });
+        videoFwd.addEventListener('seeked', () => {
+          requestAnimationFrame(() => onSeekReady());
+        }, { once: true });
       }
     };
 
@@ -273,22 +309,6 @@ const App = {
       const revEndTime = frameToTime(revEndFrame);
       const targetEndTime = frameToTime(targetEndFrame);
 
-      // DIAGNOSTIC: Log video state at start of transition
-      const getBufferedRanges = (video) => {
-        const ranges = [];
-        for (let i = 0; i < video.buffered.length; i++) {
-          ranges.push(`${video.buffered.start(i).toFixed(2)}-${video.buffered.end(i).toFixed(2)}`);
-        }
-        return ranges.join(', ') || 'none';
-      };
-      console.log(`[DIAG] playReverse ${fromSection}→${targetSection}`);
-      console.log(`[DIAG] revStartTime: ${revStartTime.toFixed(3)}, revEndTime: ${revEndTime.toFixed(3)}`);
-      console.log(`[DIAG] videoRev.currentTime: ${videoRev.currentTime.toFixed(3)}`);
-      console.log(`[DIAG] videoRev.readyState: ${videoRev.readyState}`);
-      console.log(`[DIAG] videoRev.paused: ${videoRev.paused}`);
-      console.log(`[DIAG] videoRev.buffered: ${getBufferedRanges(videoRev)}`);
-      console.log(`[DIAG] isReversing: ${isReversing.value}`);
-
       const segmentLength = revEndTime - revStartTime;
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoRev.playbackRate = playbackRate;
@@ -306,10 +326,20 @@ const App = {
       }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
+        // Cancel any existing animation AND transition listener to prevent race conditions
+        if (currentAnimationId) {
+          cancelAnimationFrame(currentAnimationId);
+          currentAnimationId = null;
+        }
+        if (currentTransitionListener && currentTransitionElement) {
+          currentTransitionElement.removeEventListener('transitionend', currentTransitionListener);
+          currentTransitionListener = null;
+          currentTransitionElement = null;
+        }
+
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
-        // This gives us full control and avoids mobile decoder issues
         const duration = actualDuration * 1000; // in ms
-        const startTime = performance.now();
+        const animStartTime = performance.now();
 
         // Pre-buffer forward video for next transition
         setTimeout(() => {
@@ -322,7 +352,7 @@ const App = {
         }, 100);
 
         const animateFrame = () => {
-          const elapsed = performance.now() - startTime;
+          const elapsed = performance.now() - animStartTime;
           const progress = Math.min(elapsed / duration, 1);
 
           // Interpolate currentTime from revStartTime to revEndTime
@@ -330,23 +360,38 @@ const App = {
           videoRev.currentTime = currentTime;
 
           if (progress < 1) {
-            requestAnimationFrame(animateFrame);
+            currentAnimationId = requestAnimationFrame(animateFrame);
           } else {
-            // Animation complete
+            // Animation complete - set final frame
+            currentAnimationId = null;
             videoRev.currentTime = revEndTime;
-            isScrollLocked.value = false;
             exitingSection.value = null;
             showContent.value = true;
+            // Listen for actual CSS transitionend - no guessing
+            const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
+            if (sectionEl) {
+              const onTransitionEnd = (e) => {
+                // Only unlock on opacity transition (the main visibility transition)
+                if (e.propertyName === 'opacity') {
+                  sectionEl.removeEventListener('transitionend', onTransitionEnd);
+                  currentTransitionListener = null;
+                  currentTransitionElement = null;
+                  isScrollLocked.value = false;
+                }
+              };
+              currentTransitionListener = onTransitionEnd;
+              currentTransitionElement = sectionEl;
+              sectionEl.addEventListener('transitionend', onTransitionEnd);
+            } else {
+              // Fallback if element not found
+              isScrollLocked.value = false;
+            }
           }
         };
-        requestAnimationFrame(animateFrame);
+        currentAnimationId = requestAnimationFrame(animateFrame);
       };
 
       const onSeekReady = () => {
-        console.log(`[DIAG] onSeekReady called`);
-        console.log(`[DIAG] videoRev.currentTime after seek: ${videoRev.currentTime.toFixed(3)}`);
-        console.log(`[DIAG] isReversing: ${isReversing.value}`);
-
         // If we are currently showing Forward (default), we need to swap
         if (!isReversing.value) {
           // Mark switch in progress - keeps forward video visible until reverse is ready
@@ -366,23 +411,18 @@ const App = {
       };
 
       // Check if we're already at the correct position (within 0.1s tolerance)
-      // This avoids unnecessary seek delays when continuing in the same direction
       const alreadyAtPosition = Math.abs(videoRev.currentTime - revStartTime) < 0.1;
-      console.log(`[DIAG] alreadyAtPosition: ${alreadyAtPosition} (diff: ${Math.abs(videoRev.currentTime - revStartTime).toFixed(3)})`);
 
-      // MOBILE FIX: Always seek AND add delay for decoder to initialize
-      // Mobile video decoders need time to "warm up" after seeking
-      console.log(`[DIAG] Seeking to ${revStartTime.toFixed(3)}`);
-      const seekStartTime = performance.now();
-      videoRev.currentTime = revStartTime;
-      videoRev.addEventListener('seeked', () => {
-        console.log(`[DIAG] Seek completed in ${(performance.now() - seekStartTime).toFixed(0)}ms`);
-        // Wait for decoder to fully initialize before playing
-        setTimeout(() => {
-          console.log(`[DIAG] Decoder warmup complete, starting playback`);
-          onSeekReady();
-        }, 50);
-      }, { once: true });
+      if (alreadyAtPosition && isReversing.value) {
+        // Already at position - wait one frame for decoder to be ready
+        requestAnimationFrame(() => onSeekReady());
+      } else {
+        // Need to seek - wait for seek + one frame
+        videoRev.currentTime = revStartTime;
+        videoRev.addEventListener('seeked', () => {
+          requestAnimationFrame(() => onSeekReady());
+        }, { once: true });
+      }
     };
 
     // Handle wheel events for section-by-section scrolling
