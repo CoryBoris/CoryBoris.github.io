@@ -128,13 +128,14 @@
   }
 
   /**
-   * Parse GIF to get frame delays - returns duration UP TO last frame appearing
-   * (excludes last frame's delay since that's just a hold)
+   * Parse GIF and modify it to play only once (no loop).
+   * Returns { duration, data } where data is the modified Uint8Array.
    */
-  function parseGifDuration(arrayBuffer) {
+  function parseAndModifyGif(arrayBuffer) {
     const data = new Uint8Array(arrayBuffer);
     const frameDelays = [];
     let i = 13;
+    let netscapeExtPos = -1;
 
     // Skip Global Color Table if present
     const packedByte = data[10];
@@ -143,53 +144,85 @@
     }
 
     while (i < data.length) {
+      // Graphic Control Extension (frame delay)
       if (data[i] === 0x21 && data[i + 1] === 0xF9) {
         const delay = (data[i + 4] | (data[i + 5] << 8)) * 10; // to ms
         frameDelays.push(delay);
         i += 8;
-      } else if (data[i] === 0x21) {
+      }
+      // Application Extension (check for NETSCAPE)
+      else if (data[i] === 0x21 && data[i + 1] === 0xFF) {
+        const blockSize = data[i + 2];
+        if (blockSize === 0x0B) {
+          // Check if it's NETSCAPE2.0
+          const appId = String.fromCharCode(...data.slice(i + 3, i + 14));
+          if (appId === 'NETSCAPE2.0') {
+            // Found NETSCAPE extension - the loop count is at i + 16 and i + 17
+            // Format: 21 FF 0B NETSCAPE2.0 03 01 [loop_lo] [loop_hi] 00
+            netscapeExtPos = i + 16;
+            console.log(`Splash: Found NETSCAPE extension at position ${i}, loop bytes at ${netscapeExtPos}`);
+            console.log(`Splash: Original loop count: ${data[netscapeExtPos] | (data[netscapeExtPos + 1] << 8)}`);
+          }
+        }
+        // Skip this extension block
         i += 2;
         while (data[i] !== 0 && i < data.length) i += data[i] + 1;
         i++;
-      } else if (data[i] === 0x2C) {
+      }
+      // Other extension
+      else if (data[i] === 0x21) {
+        i += 2;
+        while (data[i] !== 0 && i < data.length) i += data[i] + 1;
+        i++;
+      }
+      // Image descriptor
+      else if (data[i] === 0x2C) {
         i += 10;
         if (data[i - 1] & 0x80) i += 3 * Math.pow(2, (data[i - 1] & 0x07) + 1);
         i++;
         while (data[i] !== 0 && i < data.length) i += data[i] + 1;
         i++;
-      } else if (data[i] === 0x3B) {
+      }
+      // Trailer
+      else if (data[i] === 0x3B) {
         break;
       } else {
         i++;
       }
     }
 
+    // Modify the loop count to 1 (play once, then stop)
+    if (netscapeExtPos !== -1) {
+      data[netscapeExtPos] = 1;      // loop count low byte = 1
+      data[netscapeExtPos + 1] = 0;  // loop count high byte = 0
+      console.log(`Splash: Modified GIF to play once (loop count = 1)`);
+    } else {
+      console.warn('Splash: No NETSCAPE extension found - GIF may already be non-looping or will loop infinitely');
+    }
+
+    // Use FULL duration (all frames including last frame's display time)
     const totalDuration = frameDelays.reduce((a, b) => a + b, 0);
-    const lastFrameDelay = frameDelays.length > 0 ? frameDelays[frameDelays.length - 1] : 0;
-    // Duration until last frame APPEARS (excluding its hold time)
-    const durationToLastFrame = totalDuration - lastFrameDelay;
+    console.log(`Splash: GIF has ${frameDelays.length} frames, total duration: ${totalDuration}ms`);
 
-    console.log(`Splash: GIF has ${frameDelays.length} frames, duration: ${durationToLastFrame}ms`);
-
-    return durationToLastFrame;
+    return { duration: totalDuration, data };
   }
 
   /**
-   * Fetch GIF, parse duration, and create blob URL for immediate use
-   * Returns { duration, blobUrl } - blob is pre-fetched so no decode delay
+   * Fetch GIF, parse duration, modify to non-looping, and create blob URL.
+   * Returns { duration, blobUrl }
    */
-  function loadAndParseGif(src) {
+  function loadAndModifyGif(src) {
     return fetch(src)
       .then(r => r.arrayBuffer())
       .then(buf => {
-        const duration = parseGifDuration(buf);
-        // Create blob URL from the SAME data we parsed - no second fetch needed
-        const blob = new Blob([buf], { type: 'image/gif' });
+        const { duration, data } = parseAndModifyGif(buf);
+        // Create blob URL from the MODIFIED data
+        const blob = new Blob([data], { type: 'image/gif' });
         const blobUrl = URL.createObjectURL(blob);
         return { duration, blobUrl };
       })
       .catch(err => {
-        console.error('Splash: Failed to parse GIF', err);
+        console.error('Splash: Failed to load/modify GIF', err);
         return { duration: 3000, blobUrl: src };
       });
   }
@@ -252,17 +285,17 @@
   let gifDuration = 0;
   let gifBlobUrl = '';
 
-  // Step 1: Preload logo AND load/parse GIF (creates blob URL from same fetch)
+  // Step 1: Preload logo AND load/modify GIF (makes it non-looping)
   Promise.all([
     preloadImage(splashLogo.src),
-    loadAndParseGif(originalSignatureSrc).then(result => {
+    loadAndModifyGif(originalSignatureSrc).then(result => {
       gifDuration = result.duration;
       gifBlobUrl = result.blobUrl;
       // Pre-decode by creating an Image and waiting for load
       return preloadImage(gifBlobUrl);
     })
   ]).then(() => {
-    console.log(`Splash: Assets ready and pre-decoded, GIF duration: ${gifDuration}ms`);
+    console.log(`Splash: Assets ready, GIF modified to non-looping, duration: ${gifDuration}ms`);
     logoLoaded = true;
 
     return waitForPageVisibility();
@@ -285,7 +318,11 @@
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const startTime = performance.now();
-          console.log(`Splash: GIF painted, starting ${gifDuration}ms timer`);
+          // Add 300ms safety buffer - since GIF is non-looping, even if we're
+          // slightly late, the completed signature will be holding on screen
+          const safetyBuffer = 300;
+          const waitTime = gifDuration + safetyBuffer;
+          console.log(`Splash: GIF painted, waiting ${waitTime}ms (${gifDuration}ms + ${safetyBuffer}ms buffer)`);
 
           setTimeout(() => {
             console.log(`Splash: Timer fired at ${Math.round(performance.now() - startTime)}ms, starting shimmer`);
@@ -297,7 +334,7 @@
               console.log('Splash: Shimmer cycle complete');
               resolve();
             }, 2000);
-          }, gifDuration);
+          }, waitTime);
         });
       });
     });
