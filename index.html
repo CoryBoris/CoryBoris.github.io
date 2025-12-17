@@ -9,11 +9,180 @@
     var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
     document.write('<link rel="stylesheet" href="' + (isTouchDevice ? 'mobile.css' : 'desktop.css') + '" id="main-stylesheet">');
   </script>
+  <style id="critical-splash-styles">
+    /* Critical inline CSS - loads immediately before external stylesheets */
+    /* Splash overlay - covers entire viewport */
+    .splash-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      /* Match section 1 gradient */
+      background: linear-gradient(135deg, #2d4a6f 0%, #3a6186 50%, #4b79a1 100%);
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: all;
+      transition: opacity 0.5s ease-out;
+    }
+    .splash-overlay.splash-hide {
+      opacity: 0;
+      pointer-events: none;
+    }
+    /* Prevent scroll while splash is active */
+    body.splash-active {
+      overflow: hidden !important;
+      height: 100vh !important;
+    }
+    /* Splash content wrapper */
+    .splash-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+    /* Logo - circle cropped, initially hidden for fade-in */
+    .splash-logo {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.6s ease-out;
+      will-change: opacity;
+    }
+    .splash-logo.is-visible {
+      opacity: 1;
+    }
+    /* Signature gif - uses SVG filter for thickening and color */
+    /* Reserve fixed height to prevent layout shift */
+    .splash-signature {
+      width: 340px;
+      height: 100px;
+      max-width: 85vw;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 0.4s ease-out;
+      filter: url(#signature-thickener);
+      will-change: opacity;
+    }
+    .splash-signature.is-visible {
+      opacity: 1;
+    }
+    /* Content wrapper - just flex layout */
+    .splash-shimmer-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+    /* Logo container for shimmer effect - clips to circle */
+    .splash-logo-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    .splash-logo-container .splash-logo {
+      width: 100%;
+      height: 100%;
+      border-radius: 0;
+    }
+    /* Shimmer effect - soft light sweep across circle */
+    .splash-logo-container.is-shimmering::after {
+      content: '';
+      position: absolute;
+      top: -10%;
+      left: 0;
+      width: 45%;
+      height: 120%;
+      background: linear-gradient(
+        105deg,
+        transparent 0%,
+        transparent 35%,
+        rgba(255, 255, 255, 0.08) 42%,
+        rgba(255, 255, 255, 0.15) 48%,
+        rgba(255, 255, 255, 0.2) 50%,
+        rgba(255, 255, 255, 0.15) 52%,
+        rgba(255, 255, 255, 0.08) 58%,
+        transparent 65%,
+        transparent 100%
+      );
+      filter: blur(2px);
+      animation: shimmer 2.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes shimmer {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(220%); }
+    }
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .splash-logo-container {
+        width: 150px;
+        height: 150px;
+      }
+      .splash-signature {
+        width: 280px;
+        height: 85px;
+        filter: url(#signature-thickener);
+      }
+    }
+  </style>
   <script src="common.js"></script>
 </head>
-<body>
+<body class="splash-active">
+  <!-- SVG Filter for Signature Thickening -->
+  <svg style="position: absolute; width: 0; height: 0; overflow: hidden;" aria-hidden="true">
+    <defs>
+      <filter id="signature-thickener" color-interpolation-filters="sRGB">
+        <!-- 1. Invert black to white -->
+        <feColorMatrix type="matrix" values="-1 0 0 0 1
+                                           -1 0 0 0 1
+                                           -1 0 0 0 1
+                                            0 0 0 1 0"/>
+
+        <!-- 2. Thicken strokes using dilation (makes white parts wider) -->
+        <feMorphology operator="dilate" radius="1.5" result="thickened"/>
+
+        <!-- 3. Tint to eggshell white (#f5f5dc) -->
+        <feColorMatrix in="thickened" type="matrix" values="0.96 0 0 0 0
+                                                          0 0.96 0 0 0
+                                                          0 0 0.86 0 0
+                                                          0 0 0 1 0" result="eggshell"/>
+
+        <!-- 4. Create grey outline shadow -->
+        <feDropShadow dx="0" dy="0" stdDeviation="1" flood-color="rgba(60, 60, 60, 0.8)" result="shadow"/>
+
+        <!-- 5. Composite shadow behind eggshell signature -->
+        <feMerge>
+          <feMergeNode in="shadow"/>
+          <feMergeNode in="eggshell"/>
+        </feMerge>
+      </filter>
+    </defs>
+  </svg>
+
+  <!-- Splash Screen -->
+  <div class="splash-overlay" id="splash-overlay">
+    <div class="splash-shimmer-wrapper">
+      <div class="splash-logo-container" id="splash-logo-container">
+        <img src="assets/main_logo.png" alt="Cory Boris" class="splash-logo" id="splash-logo" />
+      </div>
+      <img src="assets/CorySignatureMain.gif" alt="Signature" class="splash-signature" id="splash-signature" />
+    </div>
+  </div>
+
   <div id="app"></div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script src="splash.js"></script>
   <script>
     // Load the appropriate app based on device type
     document.addEventListener('DOMContentLoaded', function() {
