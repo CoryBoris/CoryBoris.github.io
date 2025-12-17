@@ -215,8 +215,13 @@ const App = {
       };
 
       // Ensure start position and wait for seek to complete before playing
-      videoFwd.currentTime = startTime;
-      videoFwd.addEventListener('seeked', onSeekReady, { once: true });
+      // If already at position, seeked won't fire - call directly
+      if (Math.abs(videoFwd.currentTime - startTime) < 0.05) {
+        onSeekReady();
+      } else {
+        videoFwd.currentTime = startTime;
+        videoFwd.addEventListener('seeked', onSeekReady, { once: true });
+      }
     };
 
     // Play video in reverse (using the reversed video file)
@@ -304,8 +309,13 @@ const App = {
       };
 
       // Ensure start position and wait for seek to complete before playing
-      videoRev.currentTime = revStartTime;
-      videoRev.addEventListener('seeked', onSeekReady, { once: true });
+      // If already at position, seeked won't fire - call directly
+      if (Math.abs(videoRev.currentTime - revStartTime) < 0.05) {
+        onSeekReady();
+      } else {
+        videoRev.currentTime = revStartTime;
+        videoRev.addEventListener('seeked', onSeekReady, { once: true });
+      }
     };
 
 
