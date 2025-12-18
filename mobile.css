@@ -892,15 +892,20 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   min-height: min-content; /* Allow content to determine height, not parent */
   box-sizing: border-box;
   opacity: 0;
+  filter: blur(10px);
+  transform: translateY(6px);
   display: flex;
   flex-direction: column;
   align-items: center;
-  transition: opacity 0.2s ease; /* Smooth fade out on close */
+  transition: opacity 0.2s ease, filter 0.32s ease, transform 0.32s ease; /* Smooth fade out on close */
+  will-change: opacity, filter, transform;
 }
 
 .content-inner.visible {
   opacity: 1;
-  transition: opacity 0.2s ease;
+  filter: blur(0);
+  transform: translateY(0);
+  transition: opacity 0.2s ease, filter 0.32s ease, transform 0.32s ease;
   transition-delay: 0.18s; /* Wait for container expand animation to finish */
 }
 
