@@ -28,16 +28,58 @@
       align-items: center;
       justify-content: center;
       pointer-events: all;
-      transition: opacity 0.5s ease-out;
+    }
+    /* When hiding, only fade the content not the background */
+    .splash-overlay.splash-hide .splash-shimmer-wrapper {
+      opacity: 0;
     }
     .splash-overlay.splash-hide {
-      opacity: 0;
       pointer-events: none;
+    }
+    .splash-shimmer-wrapper {
+      transition: opacity 0.5s ease-out;
+    }
+    /* Site completely hidden until splash is done */
+    #app {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.5s ease-out, visibility 0s 0.5s;
+    }
+    #app.site-visible {
+      visibility: visible;
+      opacity: 1;
+      transition: opacity 0.5s ease-out, visibility 0s 0s;
+    }
+    /* Diagonal slat overlay - hidden initially, appears during reveal */
+    .slat-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 99998;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        -55deg,
+        #3a6186 0px,
+        #3a6186 12px,
+        transparent 12px,
+        transparent 24px
+      );
+      transform: translateX(-100%);
+      opacity: 0;
+      transition: transform 0.5s ease-in-out, opacity 0s;
+    }
+    .slat-overlay.reveal {
+      opacity: 1;
+      transform: translateX(100%);
     }
     /* Prevent scroll while splash is active */
     body.splash-active {
       overflow: hidden !important;
       height: 100vh !important;
+      /* Same gradient as splash - stays visible throughout transition */
+      background: linear-gradient(135deg, #2d4a6f 0%, #3a6186 50%, #4b79a1 100%);
     }
     /* Splash content wrapper */
     .splash-content {
@@ -61,18 +103,20 @@
       opacity: 1;
     }
     /* Signature gif - uses SVG filter for thickening and color */
-    /* Reserve fixed height to prevent layout shift */
+    /* Hidden completely until loaded - prevents broken image placeholder */
     .splash-signature {
       width: 340px;
       height: 100px;
       max-width: 85vw;
       object-fit: contain;
+      visibility: hidden;
       opacity: 0;
       transition: opacity 0.4s ease-out;
       filter: url(#signature-thickener);
       will-change: opacity;
     }
     .splash-signature.is-visible {
+      visibility: visible;
       opacity: 1;
     }
     /* Content wrapper - just flex layout */
@@ -176,9 +220,12 @@
       <div class="splash-logo-container" id="splash-logo-container">
         <img src="assets/main_logo.png" alt="Cory Boris" class="splash-logo" id="splash-logo" />
       </div>
-      <img src="assets/CorySignatureMain.gif" alt="Signature" class="splash-signature" id="splash-signature" />
+      <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" class="splash-signature" id="splash-signature" data-src="assets/CorySignatureMain.gif" />
     </div>
   </div>
+
+  <!-- Diagonal slat reveal overlay -->
+  <div class="slat-overlay" id="slat-overlay"></div>
 
   <div id="app"></div>
   <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>

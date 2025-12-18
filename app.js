@@ -378,8 +378,6 @@ const App = {
       if (!hasStarted && videoReady.value && windowLoaded.value && siteLoaded.value) {
         hasStarted = true;
 
-        const initialRevealDelayMs = 650;
-
         const startInitialPlayback = () => {
           // Check if we're returning from a project page
           const returnSection = sessionStorage.getItem('returnToSection');
@@ -402,8 +400,8 @@ const App = {
           playForward(0, 1); // From section 0 (start) to section 1
         };
 
-        // Let the unified CSS fade-in complete so the intro motion is visible.
-        setTimeout(startInitialPlayback, initialRevealDelayMs);
+        // Wait for splash screen to be completely done before starting video
+        window.addEventListener('splash-complete', startInitialPlayback, { once: true });
       }
     };
 

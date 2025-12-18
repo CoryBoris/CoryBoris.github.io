@@ -18,15 +18,42 @@
 
   /**
    * Hide the splash screen and show the main site
+   * Background stays constant, only content transitions:
+   * 1. Logo/signature fade out (500ms)
+   * 2. Site fades in on top (500ms)
+   * 3. Remove splash overlay (now behind site)
    */
   function hideSplash() {
-    console.log("Splash: Hiding splash screen.");
+    console.log("Splash: Fading out logo/signature.");
+
+    // Step 1: Fade out logo/signature (background stays)
     splashOverlay.classList.add('splash-hide');
+
+    // Step 2: After logo fades, show site and trigger slat reveal
     setTimeout(() => {
-      if (splashOverlay) splashOverlay.style.display = 'none';
-      document.body.classList.remove('splash-active');
-      console.log("Splash: Animation complete and body unlocked.");
-    }, 500);
+      const app = document.getElementById('app');
+      const slatOverlay = document.getElementById('slat-overlay');
+
+      if (app) {
+        console.log("Splash: Revealing site with slat effect.");
+        app.classList.add('site-visible');
+      }
+
+      // Trigger slat slide-off
+      if (slatOverlay) {
+        slatOverlay.classList.add('reveal');
+      }
+
+      // Step 3: After slat animation, clean up
+      setTimeout(() => {
+        if (splashOverlay) splashOverlay.style.display = 'none';
+        if (slatOverlay) slatOverlay.style.display = 'none';
+        document.body.classList.remove('splash-active');
+        console.log("Splash: Transition complete, dispatching splash-complete event.");
+        // Signal to app.js that splash is fully done and video can play
+        window.dispatchEvent(new CustomEvent('splash-complete'));
+      }, 500);
+    }, 500); // Wait for logo/signature fade first
   }
 
   /**
@@ -128,14 +155,19 @@
   }
 
   /**
-   * Parse GIF and modify it to play only once (no loop).
+   * Parse GIF and modify it:
+   * 1. Play only once (no loop)
+   * 2. Extend frame 0 delay to match fade-in duration (holds on first frame)
    * Returns { duration, data } where data is the modified Uint8Array.
    */
+  const FADE_IN_DURATION = 60; // 600ms in GIF time units (centiseconds) - extra buffer for fade
+
   function parseAndModifyGif(arrayBuffer) {
     const data = new Uint8Array(arrayBuffer);
     const frameDelays = [];
     let i = 13;
     let netscapeExtPos = -1;
+    let firstFrameDelayPos = -1;
 
     // Skip Global Color Table if present
     const packedByte = data[10];
@@ -146,6 +178,10 @@
     while (i < data.length) {
       // Graphic Control Extension (frame delay)
       if (data[i] === 0x21 && data[i + 1] === 0xF9) {
+        // Track first frame's delay position for modification
+        if (firstFrameDelayPos === -1) {
+          firstFrameDelayPos = i + 4; // delay bytes are at offset 4-5
+        }
         const delay = (data[i + 4] | (data[i + 5] << 8)) * 10; // to ms
         frameDelays.push(delay);
         i += 8;
@@ -200,8 +236,17 @@
       console.warn('Splash: No NETSCAPE extension found - GIF may already be non-looping or will loop infinitely');
     }
 
-    // Use FULL duration (all frames including last frame's display time)
-    const totalDuration = frameDelays.reduce((a, b) => a + b, 0);
+    // Extend first frame delay to hold during fade-in
+    if (firstFrameDelayPos !== -1) {
+      const originalDelay = data[firstFrameDelayPos] | (data[firstFrameDelayPos + 1] << 8);
+      data[firstFrameDelayPos] = FADE_IN_DURATION & 0xFF;         // low byte
+      data[firstFrameDelayPos + 1] = (FADE_IN_DURATION >> 8) & 0xFF; // high byte
+      console.log(`Splash: Extended frame 0 delay from ${originalDelay * 10}ms to ${FADE_IN_DURATION * 10}ms for fade-in`);
+    }
+
+    // Calculate duration (add the extra fade time we added to frame 0)
+    const originalFirstDelay = frameDelays[0] || 0;
+    const totalDuration = frameDelays.reduce((a, b) => a + b, 0) - originalFirstDelay + (FADE_IN_DURATION * 10);
     console.log(`Splash: GIF has ${frameDelays.length} frames, total duration: ${totalDuration}ms`);
 
     return { duration: totalDuration, data };
@@ -277,9 +322,8 @@
   // --- Main Execution Logic ---
   console.log('Splash: Initializing...');
 
-  // Store original signature src and clear it
-  const originalSignatureSrc = splashSignature.src;
-  splashSignature.src = '';
+  // Get signature src from data attribute (src is empty to prevent early loading)
+  const originalSignatureSrc = splashSignature.dataset.src;
 
   // Track gif data
   let gifDuration = 0;
@@ -306,23 +350,20 @@
     // Wait for logo fade-in (600ms)
     return new Promise(resolve => setTimeout(resolve, 600));
   }).then(() => {
-    // Step 2: Show GIF and start timer AFTER it's painted to screen
+    // Step 2: GIF is already pre-decoded from preloadImage() call above
+    // Just set src and show immediately - frame 0 will display first
     return new Promise((resolve) => {
-      // Set src and make visible
+      // Set src and make visible in same frame - GIF starts from frame 0
       splashSignature.src = gifBlobUrl;
       splashSignature.classList.add('is-visible');
 
-      // Wait for ACTUAL paint using double-rAF pattern
-      // First rAF: scheduled for next frame
-      // Second rAF: ensures first frame has been painted
+      // Wait for paint, then start timer
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           const startTime = performance.now();
-          // Add 300ms safety buffer - since GIF is non-looping, even if we're
-          // slightly late, the completed signature will be holding on screen
           const safetyBuffer = 300;
           const waitTime = gifDuration + safetyBuffer;
-          console.log(`Splash: GIF painted, waiting ${waitTime}ms (${gifDuration}ms + ${safetyBuffer}ms buffer)`);
+          console.log(`Splash: GIF visible from frame 0, waiting ${waitTime}ms`);
 
           setTimeout(() => {
             console.log(`Splash: Timer fired at ${Math.round(performance.now() - startTime)}ms, starting shimmer`);
