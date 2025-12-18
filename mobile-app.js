@@ -640,6 +640,14 @@ const App = {
     const overlayState = ref('closed'); // 'closed', 'opening', 'open', 'closing'
     const expandOrigin = ref({ x: 0, y: 0, width: 0, height: 0, logo: '' }); // Logo click position for expand origin
 
+    let openOverlayToken = 0;
+    let pendingOpenAnimations = 0;
+    let openOverlayFallbackTimer = null;
+
+    let closeOverlayToken = 0;
+    let pendingCloseAnimations = 0;
+    let closeOverlayFallbackTimer = null;
+
     const resetBounceTimer = () => {
       isBouncing.value = false;
       if (bounceTimer) clearTimeout(bounceTimer);
@@ -730,9 +738,67 @@ const App = {
       // Allow a frame for render before starting animation if needed,
       // but CSS keyframes handle it.
       // We just need to switch to 'open' after animation.
-      setTimeout(() => {
+      openOverlayToken++;
+      const token = openOverlayToken;
+      pendingOpenAnimations = expandOrigin.value.logo ? 2 : 1;
+
+      if (openOverlayFallbackTimer) clearTimeout(openOverlayFallbackTimer);
+      openOverlayFallbackTimer = setTimeout(() => {
+        if (token !== openOverlayToken) return;
+        if (overlayState.value !== 'opening') return;
         overlayState.value = 'open';
-      }, 470);
+      }, 950);
+    };
+
+    const finishOneOpenAnimation = (token) => {
+      if (token !== openOverlayToken) return;
+      if (overlayState.value !== 'opening') return;
+
+      pendingOpenAnimations = Math.max(0, pendingOpenAnimations - 1);
+      if (pendingOpenAnimations !== 0) return;
+
+      if (openOverlayFallbackTimer) {
+        clearTimeout(openOverlayFallbackTimer);
+        openOverlayFallbackTimer = null;
+      }
+      overlayState.value = 'open';
+    };
+
+    const finishOneCloseAnimation = (token) => {
+      if (token !== closeOverlayToken) return;
+      if (overlayState.value !== 'closing') return;
+
+      pendingCloseAnimations = Math.max(0, pendingCloseAnimations - 1);
+      if (pendingCloseAnimations !== 0) return;
+
+      if (closeOverlayFallbackTimer) {
+        clearTimeout(closeOverlayFallbackTimer);
+        closeOverlayFallbackTimer = null;
+      }
+
+      projectOverlay.value = null;
+      overlayState.value = 'closed';
+      isScrollLocked.value = false;
+    };
+
+    const onProjectDetailAnimationEnd = (event) => {
+      if (overlayState.value === 'opening' && event.animationName === 'expandMatte') {
+        finishOneOpenAnimation(openOverlayToken);
+        return;
+      }
+      if (overlayState.value === 'closing' && event.animationName === 'collapseMatte') {
+        finishOneCloseAnimation(closeOverlayToken);
+      }
+    };
+
+    const onAnimatingLogoAnimationEnd = (event) => {
+      if (overlayState.value === 'opening' && event.animationName === 'logoPopIntoPlace') {
+        finishOneOpenAnimation(openOverlayToken);
+        return;
+      }
+      if (overlayState.value === 'closing' && event.animationName === 'logoPopBack') {
+        finishOneCloseAnimation(closeOverlayToken);
+      }
     };
 
     const closeProjectOverlay = () => {
@@ -740,11 +806,19 @@ const App = {
 
       const performClose = () => {
         overlayState.value = 'closing';
-        setTimeout(() => {
+
+        closeOverlayToken++;
+        const token = closeOverlayToken;
+        pendingCloseAnimations = expandOrigin.value.logo ? 2 : 1;
+
+        if (closeOverlayFallbackTimer) clearTimeout(closeOverlayFallbackTimer);
+        closeOverlayFallbackTimer = setTimeout(() => {
+          if (token !== closeOverlayToken) return;
+          if (overlayState.value !== 'closing') return;
           projectOverlay.value = null;
           overlayState.value = 'closed';
           isScrollLocked.value = false;
-        }, 650);
+        }, 950);
       };
 
       // Scroll to top before closing so the minimize animation aligns with the logo
@@ -810,6 +884,8 @@ const App = {
       openProjectOverlay,
       closeProjectOverlay,
       overlayState,
+      onProjectDetailAnimationEnd,
+      onAnimatingLogoAnimationEnd,
       expandOrigin,
       expandStyle,
       isBouncing,
@@ -920,6 +996,7 @@ const App = {
           class="project-detail-content"
           :class="overlayState"
           :style="expandStyle"
+          @animationend.self="onProjectDetailAnimationEnd"
         >
           <!-- Single Animating Logo - stays visible throughout, no swap -->
           <img
@@ -927,6 +1004,7 @@ const App = {
             :src="expandOrigin.logo"
             class="animating-logo"
             :class="overlayState"
+            @animationend.self="onAnimatingLogoAnimationEnd"
           >
 
           <!-- Content (fades in after open start) - logo is the animating-logo above -->

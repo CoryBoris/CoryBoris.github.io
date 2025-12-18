@@ -791,7 +791,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   border-radius: 20px;
 
   /* Delay so logo shrinks first */
-  animation: collapseMatte 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) 0.1s forwards;
+  animation: collapseMatte 0.55s cubic-bezier(0.25, 0.1, 0.25, 1) forwards;
 }
 
 /* Animating Logo - THE logo, starts at origin, pops into final position, stays visible */
@@ -869,7 +869,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
     transform: translateX(-50%);
     width: var(--origin-width);
     height: var(--origin-height);
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 10px;
   }
 }
@@ -901,6 +901,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
 .content-inner.visible {
   opacity: 1;
   transition: opacity 0.2s ease;
+  transition-delay: 0.18s; /* Wait for container expand animation to finish */
 }
 
 /* Keyframes */
@@ -977,7 +978,7 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
    transform: scale(1);
    pointer-events: auto;
    visibility: visible;
-   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+   transition: opacity 0.2s ease 0.18s, transform 0.2s ease 0.18s, visibility 0s linear 0.18s;
  }
 
  .project-detail-content.closing .project-detail-close {
