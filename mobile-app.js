@@ -847,6 +847,17 @@ const App = {
       }
     };
 
+    const swipeIndicator = computed(() => {
+      const section = currentSection.value;
+      if (section === 1) {
+        return { path: 'M12 19v-14M5 12l7-7 7 7', text: 'Swipe up' };
+      } else if (section === 4) {
+        return { path: 'M12 5v14M5 12l7 7 7-7', text: 'Swipe down' };
+      } else {
+        return { path: 'M12 3v18M5 8l7-7 7 7M5 16l7 7 7-7', text: 'Swipe' };
+      }
+    });
+
     const expandStyle = computed(() => {
       return {
         '--origin-x': expandOrigin.value.x + 'px',
@@ -892,7 +903,8 @@ const App = {
       expandOrigin,
       expandStyle,
       isBouncing,
-      resetBounceTimer
+      resetBounceTimer,
+      swipeIndicator
     };
   },
 
@@ -1036,9 +1048,9 @@ const App = {
       <!-- Scroll indicator -->
       <div class="scroll-indicator" :class="{ hidden: needsTapToStart || scrollProgress > 0.05, bouncing: isBouncing }">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12l7 7 7-7"/>
+          <path :d="swipeIndicator.path"/>
         </svg>
-        <div>Scroll</div>
+        <div>{{ swipeIndicator.text }}</div>
       </div>
 
       <!-- Tap to start overlay (mobile only) - hidden when menu is open or closing -->
