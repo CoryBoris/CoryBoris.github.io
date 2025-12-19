@@ -573,6 +573,7 @@ const App = {
         videosLoaded++;
         if (videosLoaded === 2) {
           videoReady.value = true;
+          siteLoaded.value = true; // Enable UI visibility immediately - don't wait for images
           tryStart();
         }
         checkAllAssetsLoaded();
@@ -611,14 +612,14 @@ const App = {
       if (videoFwd) {
         videoFwd.muted = true;
         videoFwd.playsInline = true;
-        videoFwd.addEventListener('canplaythrough', onVideoReady, { once: true });
+        videoFwd.addEventListener('loadeddata', onVideoReady, { once: true });
         videoFwd.load();
       }
 
       if (videoRev) {
         videoRev.muted = true;
         videoRev.playsInline = true;
-        videoRev.addEventListener('canplaythrough', onVideoReady, { once: true });
+        videoRev.addEventListener('loadeddata', onVideoReady, { once: true });
         videoRev.load();
       }
     });

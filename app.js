@@ -380,7 +380,7 @@ const App = {
     };
 
     const tryStart = () => {
-      if (!hasStarted && videoReady.value && windowLoaded.value && siteLoaded.value) {
+      if (!hasStarted && videoReady.value && windowLoaded.value) {
         hasStarted = true;
         // Signal to splash that app is truly ready for interaction
         document.querySelector('.scroll-container')?.classList.add('app-ready');
@@ -436,9 +436,8 @@ const App = {
       const totalImages = projects.length;
 
       const checkAllAssetsLoaded = () => {
-        if (videosLoaded === totalVideos && imagesLoaded === totalImages) {
+        if (imagesLoaded === totalImages) {
           siteLoaded.value = true;
-          tryStart();
         }
       };
 
@@ -447,11 +446,11 @@ const App = {
         if (videosLoaded === 2) {
           console.log('Both videos loaded');
           videoReady.value = true;
+          siteLoaded.value = true; // Enable UI visibility immediately
           videoFwd.currentTime = 0;
           videoRev.currentTime = frameToTime(totalFrames); // End of reverse = start of forward
           tryStart();
         }
-        checkAllAssetsLoaded();
       };
 
       // Preload all project images
@@ -484,11 +483,18 @@ const App = {
         window.addEventListener('load', onWindowLoad);
       }
 
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
       if (videoFwd) {
         videoFwd.muted = true;
         videoFwd.playsInline = true;
         videoFwd.addEventListener('canplaythrough', onVideoReady, { once: true });
         videoFwd.load();
+
+        // iOS: force video to start loading by briefly playing (allowed for muted videos)
+        if (isIOS) {
+          videoFwd.play().then(() => videoFwd.pause()).catch(() => {});
+        }
       }
 
       if (videoRev) {
@@ -496,6 +502,23 @@ const App = {
         videoRev.playsInline = true;
         videoRev.addEventListener('canplaythrough', onVideoReady, { once: true });
         videoRev.load();
+
+        if (isIOS) {
+          videoRev.play().then(() => videoRev.pause()).catch(() => {});
+        }
+      }
+
+      // iOS fallback: if videos haven't loaded in 4 seconds, proceed anyway
+      if (isIOS) {
+        setTimeout(() => {
+          if (!videoReady.value) {
+            console.warn('iOS: video load timeout, proceeding');
+            videoReady.value = true;
+            if (videoFwd) videoFwd.currentTime = 0;
+            if (videoRev) videoRev.currentTime = frameToTime(totalFrames);
+            tryStart();
+          }
+        }, 4000);
       }
     });
 
