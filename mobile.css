@@ -150,7 +150,7 @@ html, body {
   z-index: 1;
 }
 
-/* Video visibility states - using visibility to prevent flash of wrong frame */
+/* Video visibility states */
 .video-container video.video-active {
   opacity: 1;
   z-index: 2;

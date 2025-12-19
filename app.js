@@ -11,12 +11,13 @@ const App = {
     const siteLoaded = ref(false);
     let hasStarted = false;
     const showContent = ref(false);
+    const videoFadedIn = ref(false); // Controls video fade-in on frame 0
     const exitingSection = ref(null); // Track which section is animating out
     const isReversing = ref(false);
     const videoSwitchReady = ref(true); // Tracks if incoming video is ready to show
     const initialIntroDone = ref(false);
     const isScrollLocked = ref(true); // Block scrolls during animation
-    const gradientSection = ref(1); // Tracks which gradient to show (CSS handles smooth transition)
+    const gradientSection = ref(0); // Start at 0 (matches splash), transitions to 1 on initial play
     const gradientDuration = ref('1s'); // Duration synced to video segment playback
     const gradientAngle = ref('135deg'); // Angle: 135deg at rest, 180deg during color transition
     const angleDuration = ref('0.3s'); // Quick angle transitions
@@ -155,9 +156,13 @@ const App = {
       // Orchestrate gradient transition
       const actualDuration = segmentLength / playbackRate;
       const angleTransitionTime = 300; // ms for angle to rotate
+      // For initial 0→1 transition, use full duration for smoother blend from splash
+      const gradientTransitionTime = fromSection === 0
+        ? actualDuration
+        : Math.max(0.4, actualDuration - 0.6);
       gradientAngle.value = '180deg';
       setTimeout(() => {
-        gradientDuration.value = `${actualDuration - 0.6}s`;
+        gradientDuration.value = `${gradientTransitionTime}s`;
         gradientSection.value = targetSection;
       }, angleTransitionTime);
       setTimeout(() => {
@@ -380,30 +385,31 @@ const App = {
         // Signal to splash that app is truly ready for interaction
         document.querySelector('.scroll-container')?.classList.add('app-ready');
 
-        const startInitialPlayback = () => {
-          // Check if we're returning from a project page
-          const returnSection = sessionStorage.getItem('returnToSection');
-          if (returnSection) {
-            sessionStorage.removeItem('returnToSection');
-            const targetSection = parseInt(returnSection, 10);
-            if (targetSection >= 1 && targetSection <= 4) {
-              // Update currentSection BEFORE playing so correct logo shows
-              currentSection.value = targetSection;
-              // Allow programmatic playback to start
-              isScrollLocked.value = false;
-              // Skip initial animation and go directly to the saved section
-              playForward(0, targetSection);
-              return;
-            }
-          }
+        // Check if we're returning from a project page
+        const returnSection = sessionStorage.getItem('returnToSection');
+        const isReturning = returnSection !== null;
+        let targetReturnSection = 1;
+        if (isReturning) {
+          sessionStorage.removeItem('returnToSection');
+          targetReturnSection = parseInt(returnSection, 10);
+          if (targetReturnSection < 1 || targetReturnSection > 4) targetReturnSection = 1;
+          currentSection.value = targetReturnSection;
+        }
 
-          // Allow programmatic intro playback to start
+        // When site becomes visible, fade in video on frame 0
+        window.addEventListener('site-reveal', () => {
+          videoFadedIn.value = true;
+        }, { once: true });
+
+        // When splash is fully complete, start playback
+        window.addEventListener('splash-complete', () => {
           isScrollLocked.value = false;
-          playForward(0, 1); // From section 0 (start) to section 1
-        };
-
-        // Wait for splash screen to be completely done before starting video
-        window.addEventListener('splash-complete', startInitialPlayback, { once: true });
+          if (isReturning) {
+            playForward(0, targetReturnSection);
+          } else {
+            playForward(0, 1);
+          }
+        }, { once: true });
       }
     };
 
@@ -592,6 +598,7 @@ const App = {
       videoSwitchReady,
       videoReady,
       siteLoaded,
+      videoFadedIn,
       menuOpen,
       emailView,
       copyButtonText,
@@ -618,8 +625,7 @@ const App = {
           muted
           playsinline
           preload="auto"
-          :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady }"
-          :style="{ opacity: (videoReady && siteLoaded) ? null : 0 }"
+          :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady, 'video-ready': videoFadedIn }"
         >
           <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
         </video>
@@ -629,8 +635,7 @@ const App = {
           muted
           playsinline
           preload="auto"
-          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady) }"
-          :style="{ opacity: (videoReady && siteLoaded) ? null : 0 }"
+          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady), 'video-ready': videoFadedIn }"
         >
           <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
         </video>

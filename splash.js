@@ -36,6 +36,8 @@
 
       if (app) {
         app.classList.add('site-visible');
+        // Signal to app.js that video should start fading in NOW (synced with site fade)
+        window.dispatchEvent(new CustomEvent('site-reveal'));
       }
 
       // Trigger slat slide-off
@@ -330,22 +332,17 @@
   let gifDuration = 0;
   let gifBlobUrl = '';
 
-  const afterFirstPaint = new Promise((resolve) => {
-    requestAnimationFrame(() => {
-      requestAnimationFrame(resolve);
-    });
-  });
+  // Start loading immediately - don't wait for first paint
+  // Logo is already preloaded via <link rel="preload"> in HTML, so this should be instant
+  const logoPromise = preloadImage(originalLogoSrc);
 
-  const signaturePromise = afterFirstPaint
-    .then(() => loadAndModifyGif(originalSignatureSrc))
+  // Start GIF fetch/parse immediately in parallel
+  const signaturePromise = loadAndModifyGif(originalSignatureSrc)
     .then(result => {
       gifDuration = result.duration;
       gifBlobUrl = result.blobUrl;
       return preloadImage(gifBlobUrl);
     });
-
-  const logoPromise = afterFirstPaint
-    .then(() => preloadImage(originalLogoSrc));
 
   waitForPageVisibility()
     .then(() => logoPromise)
@@ -356,7 +353,7 @@
       console.log('Splash: logo visible');
       // Wait for BOTH: minimum visual gap (so logo registers first) AND signature ready
       // Whichever takes longer - no unnecessary delay if signature is already loaded
-      const minVisualGap = new Promise(resolve => setTimeout(resolve, 150));
+      const minVisualGap = new Promise(resolve => setTimeout(resolve, 100));
       return Promise.all([minVisualGap, signaturePromise]);
     })
     .then(() => {
@@ -367,7 +364,7 @@
 
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            const safetyBuffer = 300;
+            const safetyBuffer = 100;
             const waitTime = gifDuration + safetyBuffer;
 
             setTimeout(() => {
@@ -378,7 +375,7 @@
               setTimeout(() => {
                 shimmerCycleComplete = true;
                 resolve();
-              }, 2000);
+              }, 2200);
             }, waitTime);
           });
         });

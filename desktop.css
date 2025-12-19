@@ -100,6 +100,13 @@ html, body {
 }
 
 /* Gradient color presets for each section */
+/* Section 0: Matches splash screen exactly for seamless transition */
+.video-container[data-section="0"] {
+  --gradient-color-1: #2d4a6f;
+  --gradient-color-2: #3a6186;
+  --gradient-color-3: #4b79a1;
+}
+
 .video-container[data-section="1"] {
   --gradient-color-1: #4a6a8f;
   --gradient-color-2: #5a81a6;
@@ -137,15 +144,29 @@ html, body {
     brightness(1.015)
     contrast(1.02)
     saturate(0.95);
+  /* Start hidden - NO transition here, switches must be instant */
+  opacity: 0;
 }
 
-/* Video visibility states - using visibility to prevent flash of wrong frame */
-.video-container video.video-active {
+/* Initial fade-in: transition only when video-ready is first added */
+.video-container video.video-ready {
+  transition: opacity 0.5s ease-out;
+}
+
+/* After initial fade, remove transition for instant video switches */
+.video-container video.video-ready.video-active,
+.video-container video.video-ready.video-hidden {
+  transition: none;
+}
+
+/* Video visibility states */
+.video-container video.video-ready.video-active {
   opacity: 1;
   z-index: 2;
 }
 
-.video-container video.video-hidden {
+.video-container video.video-hidden,
+.video-container video:not(.video-ready) {
   opacity: 0;
   z-index: 1;
 }
