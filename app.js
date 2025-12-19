@@ -627,6 +627,7 @@ const App = {
           preload="auto"
           :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady, 'video-ready': videoFadedIn }"
         >
+          <source src="assets/Coat_Unfolding.webm" type="video/webm">
           <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
         </video>
         <!-- Reverse video -->
@@ -637,6 +638,7 @@ const App = {
           preload="auto"
           :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady), 'video-ready': videoFadedIn }"
         >
+          <source src="assets/Coat_Unfolding_Reverse.webm" type="video/webm">
           <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
         </video>
       </div>
