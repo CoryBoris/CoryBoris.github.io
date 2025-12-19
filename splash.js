@@ -345,16 +345,21 @@
     });
 
   waitForPageVisibility()
-    .then(() => logoPromise)
     .then(() => {
+      // Wait for BOTH logo AND signature to be fully loaded before showing anything
+      // This prevents the race condition where we show the logo before signature is truly ready
+      return Promise.all([logoPromise, signaturePromise]);
+    })
+    .then(() => {
+      // Both are now fully loaded - show logo first
       logoLoaded = true;
+      signatureLoaded = true;
       splashLogo.src = originalLogoSrc;
       splashLogo.classList.add('is-visible');
-      console.log('Splash: logo visible');
-      // Wait for BOTH: minimum visual gap (so logo registers first) AND signature ready
-      // Whichever takes longer - no unnecessary delay if signature is already loaded
-      const minVisualGap = new Promise(resolve => setTimeout(resolve, 100));
-      return Promise.all([minVisualGap, signaturePromise]);
+      console.log('Splash: logo visible (both assets loaded)');
+
+      // Wait exactly 100ms then show signature
+      return new Promise(resolve => setTimeout(resolve, 100));
     })
     .then(() => {
 
