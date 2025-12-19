@@ -488,8 +488,10 @@ const App = {
     };
 
     const tryStart = () => {
-      if (!hasStarted && videoReady.value && windowLoaded.value) {
+      if (!hasStarted && videoReady.value && windowLoaded.value && siteLoaded.value) {
         hasStarted = true;
+        // Signal to splash that app is truly ready for interaction
+        document.querySelector('.scroll-container')?.classList.add('app-ready');
       }
     };
 
@@ -609,14 +611,14 @@ const App = {
       if (videoFwd) {
         videoFwd.muted = true;
         videoFwd.playsInline = true;
-        videoFwd.addEventListener('loadeddata', onVideoReady, { once: true });
+        videoFwd.addEventListener('canplaythrough', onVideoReady, { once: true });
         videoFwd.load();
       }
 
       if (videoRev) {
         videoRev.muted = true;
         videoRev.playsInline = true;
-        videoRev.addEventListener('loadeddata', onVideoReady, { once: true });
+        videoRev.addEventListener('canplaythrough', onVideoReady, { once: true });
         videoRev.load();
       }
     });

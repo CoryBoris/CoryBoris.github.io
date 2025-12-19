@@ -24,7 +24,7 @@
    * 3. Remove splash overlay (now behind site)
    */
   function hideSplash() {
-    console.log("Splash: Fading out logo/signature.");
+    console.log('Splash: hiding');
 
     // Step 1: Fade out logo/signature (background stays)
     splashOverlay.classList.add('splash-hide');
@@ -35,7 +35,6 @@
       const slatOverlay = document.getElementById('slat-overlay');
 
       if (app) {
-        console.log("Splash: Revealing site with slat effect.");
         app.classList.add('site-visible');
       }
 
@@ -48,8 +47,12 @@
       setTimeout(() => {
         if (splashOverlay) splashOverlay.style.display = 'none';
         if (slatOverlay) slatOverlay.style.display = 'none';
+        if (gifBlobUrl && typeof gifBlobUrl === 'string' && gifBlobUrl.startsWith('blob:')) {
+          try { URL.revokeObjectURL(gifBlobUrl); } catch (_) {}
+          gifBlobUrl = '';
+        }
         document.body.classList.remove('splash-active');
-        console.log("Splash: Transition complete, dispatching splash-complete event.");
+        console.log('Splash: complete');
         // Signal to app.js that splash is fully done and video can play
         window.dispatchEvent(new CustomEvent('splash-complete'));
       }, 500);
@@ -61,7 +64,6 @@
    * Called after minimum sequence (photo → signature → 1 shimmer) completes
    */
   function checkReadyToReveal() {
-    console.log(`Splash: Checking ready state - signatureComplete: ${signatureAnimationComplete}, shimmerComplete: ${shimmerCycleComplete}, appReady: ${appReady}`);
     if (signatureAnimationComplete && shimmerCycleComplete && appReady) {
       // Stop shimmer and hide splash
       logoContainer.classList.remove('is-shimmering');
@@ -69,7 +71,7 @@
     } else if (signatureAnimationComplete && shimmerCycleComplete && !appReady) {
       // App not ready yet - shimmer continues (CSS animation is infinite)
       // Just wait and check again when app signals ready
-      console.log('Splash: Minimum hold complete, waiting for app ready (shimmer continues)');
+      console.log('Splash: waiting for app ready');
     }
   }
 
@@ -99,10 +101,8 @@
         }
 
         if (stableFrames >= requiredStableFrames) {
-          console.log(`Splash: Viewport stable at ${currentHeight}px`);
           resolve();
         } else if (totalFrames >= maxFrames) {
-          console.warn(`Splash: Viewport stability timeout`);
           resolve();
         } else {
           requestAnimationFrame(check);
@@ -119,7 +119,6 @@
   function waitForPageVisibility() {
     return new Promise((resolve) => {
       if (document.prerendering) {
-        console.log('Splash: Page is prerendering, waiting...');
         document.addEventListener('prerenderingchange', () => {
           waitForStableViewport().then(resolve);
         }, { once: true });
@@ -127,7 +126,6 @@
       }
 
       if (document.visibilityState === 'hidden') {
-        console.log('Splash: Page is hidden, waiting...');
         const onVisible = () => {
           if (document.visibilityState === 'visible') {
             document.removeEventListener('visibilitychange', onVisible);
@@ -151,6 +149,10 @@
       img.onload = () => resolve(img);
       img.onerror = reject;
       img.src = src;
+      if (img.complete) {
+        if (img.naturalWidth > 0) resolve(img);
+        else reject(new Error(`Splash: Image failed to load (complete but empty): ${src}`));
+      }
     });
   }
 
@@ -196,8 +198,6 @@
             // Found NETSCAPE extension - the loop count is at i + 16 and i + 17
             // Format: 21 FF 0B NETSCAPE2.0 03 01 [loop_lo] [loop_hi] 00
             netscapeExtPos = i + 16;
-            console.log(`Splash: Found NETSCAPE extension at position ${i}, loop bytes at ${netscapeExtPos}`);
-            console.log(`Splash: Original loop count: ${data[netscapeExtPos] | (data[netscapeExtPos + 1] << 8)}`);
           }
         }
         // Skip this extension block
@@ -231,9 +231,6 @@
     if (netscapeExtPos !== -1) {
       data[netscapeExtPos] = 1;      // loop count low byte = 1
       data[netscapeExtPos + 1] = 0;  // loop count high byte = 0
-      console.log(`Splash: Modified GIF to play once (loop count = 1)`);
-    } else {
-      console.warn('Splash: No NETSCAPE extension found - GIF may already be non-looping or will loop infinitely');
     }
 
     // Extend first frame delay to hold during fade-in
@@ -241,13 +238,11 @@
       const originalDelay = data[firstFrameDelayPos] | (data[firstFrameDelayPos + 1] << 8);
       data[firstFrameDelayPos] = FADE_IN_DURATION & 0xFF;         // low byte
       data[firstFrameDelayPos + 1] = (FADE_IN_DURATION >> 8) & 0xFF; // high byte
-      console.log(`Splash: Extended frame 0 delay from ${originalDelay * 10}ms to ${FADE_IN_DURATION * 10}ms for fade-in`);
     }
 
     // Calculate duration (add the extra fade time we added to frame 0)
     const originalFirstDelay = frameDelays[0] || 0;
     const totalDuration = frameDelays.reduce((a, b) => a + b, 0) - originalFirstDelay + (FADE_IN_DURATION * 10);
-    console.log(`Splash: GIF has ${frameDelays.length} frames, total duration: ${totalDuration}ms`);
 
     return { duration: totalDuration, data };
   }
@@ -257,7 +252,7 @@
    * Returns { duration, blobUrl }
    */
   function loadAndModifyGif(src) {
-    return fetch(src)
+    return fetch(src, { cache: 'force-cache' })
       .then(r => r.arrayBuffer())
       .then(buf => {
         const { duration, data } = parseAndModifyGif(buf);
@@ -273,15 +268,20 @@
   }
 
   /**
-   * Wait for the app to signal it's ready
+   * Wait for the app to signal it's truly ready for interaction
+   * This waits for 'app-ready' class which is set when:
+   * - Videos are buffered (canplaythrough)
+   * - Window is loaded
+   * - All project images are preloaded
+   * - hasStarted = true in Vue app
    */
   function waitForAppReady() {
     return new Promise((resolve) => {
-      // Listen for siteLoaded event from the Vue app
       const checkReady = () => {
-        const scrollContainer = document.querySelector('.scroll-container.site-loaded');
+        // app-ready is set by tryStart() when ALL conditions are met
+        const scrollContainer = document.querySelector('.scroll-container.app-ready');
         if (scrollContainer) {
-          console.log('Splash: App ready (site-loaded class found)');
+          console.log('Splash: app ready');
           appReady = true;
           resolve();
           return true;
@@ -307,84 +307,91 @@
         attributeFilter: ['class']
       });
 
-      // Safety timeout - if app doesn't load within 8 seconds, proceed anyway
+      // Safety timeout - only as absolute last resort (slow network, stuck video)
+      // 15 seconds is long enough that if we hit this, something is actually broken
       setTimeout(() => {
         if (!appReady) {
-          console.warn('Splash: App ready timeout - proceeding anyway');
+          console.warn('Splash: app ready timeout (15s) - proceeding anyway');
           appReady = true;
           observer.disconnect();
           resolve();
         }
-      }, 8000);
+      }, 15000);
     });
   }
 
   // --- Main Execution Logic ---
-  console.log('Splash: Initializing...');
 
   // Get signature src from data attribute (src is empty to prevent early loading)
   const originalSignatureSrc = splashSignature.dataset.src;
+  const originalLogoSrc = splashLogo.dataset.src || splashLogo.src;
 
   // Track gif data
   let gifDuration = 0;
   let gifBlobUrl = '';
 
-  // Step 1: Preload logo AND load/modify GIF (makes it non-looping)
-  Promise.all([
-    preloadImage(splashLogo.src),
-    loadAndModifyGif(originalSignatureSrc).then(result => {
+  const afterFirstPaint = new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve);
+    });
+  });
+
+  const signaturePromise = afterFirstPaint
+    .then(() => loadAndModifyGif(originalSignatureSrc))
+    .then(result => {
       gifDuration = result.duration;
       gifBlobUrl = result.blobUrl;
-      // Pre-decode by creating an Image and waiting for load
       return preloadImage(gifBlobUrl);
+    });
+
+  const logoPromise = afterFirstPaint
+    .then(() => preloadImage(originalLogoSrc));
+
+  waitForPageVisibility()
+    .then(() => logoPromise)
+    .then(() => {
+      logoLoaded = true;
+      splashLogo.src = originalLogoSrc;
+      splashLogo.classList.add('is-visible');
+      console.log('Splash: logo visible');
+      // Wait for BOTH: minimum visual gap (so logo registers first) AND signature ready
+      // Whichever takes longer - no unnecessary delay if signature is already loaded
+      const minVisualGap = new Promise(resolve => setTimeout(resolve, 150));
+      return Promise.all([minVisualGap, signaturePromise]);
     })
-  ]).then(() => {
-    console.log(`Splash: Assets ready, GIF modified to non-looping, duration: ${gifDuration}ms`);
-    logoLoaded = true;
+    .then(() => {
 
-    return waitForPageVisibility();
-  }).then(() => {
-    splashLogo.classList.add('is-visible');
-    console.log('Splash: Logo visible');
+      return new Promise((resolve) => {
+        splashSignature.src = gifBlobUrl;
+        splashSignature.classList.add('is-visible');
 
-    // Wait for logo fade-in (600ms)
-    return new Promise(resolve => setTimeout(resolve, 600));
-  }).then(() => {
-    // Step 2: GIF is already pre-decoded from preloadImage() call above
-    // Just set src and show immediately - frame 0 will display first
-    return new Promise((resolve) => {
-      // Set src and make visible in same frame - GIF starts from frame 0
-      splashSignature.src = gifBlobUrl;
-      splashSignature.classList.add('is-visible');
-
-      // Wait for paint, then start timer
-      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          const startTime = performance.now();
-          const safetyBuffer = 300;
-          const waitTime = gifDuration + safetyBuffer;
-          console.log(`Splash: GIF visible from frame 0, waiting ${waitTime}ms`);
-
-          setTimeout(() => {
-            console.log(`Splash: Timer fired at ${Math.round(performance.now() - startTime)}ms, starting shimmer`);
-            signatureAnimationComplete = true;
-            logoContainer.classList.add('is-shimmering');
+          requestAnimationFrame(() => {
+            const startTime = performance.now();
+            const safetyBuffer = 300;
+            const waitTime = gifDuration + safetyBuffer;
 
             setTimeout(() => {
-              shimmerCycleComplete = true;
-              console.log('Splash: Shimmer cycle complete');
-              resolve();
-            }, 2000);
-          }, waitTime);
+              console.log('Splash: signature done, shimmer start');
+              signatureAnimationComplete = true;
+              logoContainer.classList.add('is-shimmering');
+
+              setTimeout(() => {
+                shimmerCycleComplete = true;
+                resolve();
+              }, 2000);
+            }, waitTime);
+          });
         });
       });
+    })
+    .then(() => {
+      checkReadyToReveal();
+    })
+    .catch((error) => {
+      console.error('Splash: Error during initialization:', error);
+      setTimeout(hideSplash, 2000);
     });
-  }).then(() => {
-    checkReadyToReveal();
-  }).catch((error) => {
-    console.error('Splash: Error during initialization:', error);
-    setTimeout(hideSplash, 2000);
-  });
 
   // Wait for app ready in parallel
   waitForAppReady().then(() => {

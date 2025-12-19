@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Cory Boris</title>
+  <link rel="preload" href="assets/main_logo.png" as="image" fetchpriority="high">
+  <link rel="preload" href="assets/CorySignatureMain.gif" as="image">
   <script>
     // Detect touch BEFORE loading CSS - prevents race condition on iPad Pro
     var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
@@ -218,7 +220,7 @@
   <div class="splash-overlay" id="splash-overlay">
     <div class="splash-shimmer-wrapper">
       <div class="splash-logo-container" id="splash-logo-container">
-        <img src="assets/main_logo.png" alt="Cory Boris" class="splash-logo" id="splash-logo" />
+        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="Cory Boris" class="splash-logo" id="splash-logo" data-src="assets/main_logo.png" />
       </div>
       <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" alt="" class="splash-signature" id="splash-signature" data-src="assets/CorySignatureMain.gif" />
     </div>
