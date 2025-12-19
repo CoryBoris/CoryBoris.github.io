@@ -83,9 +83,9 @@
       let lastHeight = window.innerHeight;
       let lastWidth = window.innerWidth;
       let stableFrames = 0;
-      const requiredStableFrames = 10;
+      const requiredStableFrames = 3;  // ~50ms at 60fps - quick check
       let totalFrames = 0;
-      const maxFrames = 120;
+      const maxFrames = 30;  // ~500ms max wait - don't block too long
 
       function check() {
         totalFrames++;
@@ -367,7 +367,6 @@
 
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
-            const startTime = performance.now();
             const safetyBuffer = 300;
             const waitTime = gifDuration + safetyBuffer;
 
