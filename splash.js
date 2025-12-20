@@ -356,6 +356,7 @@
       signatureLoaded = true;
       splashLogo.src = originalLogoSrc;
       splashLogo.classList.add('is-visible');
+      logoContainer.classList.add('is-ready');
       console.log('Splash: logo visible (both assets loaded)');
 
       // Wait exactly 100ms then show signature
