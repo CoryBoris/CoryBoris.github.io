@@ -135,39 +135,78 @@
       height: 400px;
       border-radius: 50%;
       overflow: hidden;
+      box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.3),
+        0 2px 8px rgba(0, 0, 0, 0.2),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.1);
     }
     .splash-logo-container .splash-logo {
       width: 100%;
       height: 100%;
       border-radius: 0;
     }
-    /* Shimmer effect - soft light sweep across circle */
+    /* Shimmer effect - wavy dual-layer sweep */
+    .splash-logo-container.is-shimmering::before,
     .splash-logo-container.is-shimmering::after {
       content: '';
       position: absolute;
-      top: -10%;
-      left: 0;
-      width: 45%;
-      height: 120%;
-      background: linear-gradient(
-        105deg,
-        transparent 0%,
-        transparent 35%,
-        rgba(255, 255, 255, 0.08) 42%,
-        rgba(255, 255, 255, 0.15) 48%,
-        rgba(255, 255, 255, 0.2) 50%,
-        rgba(255, 255, 255, 0.15) 52%,
-        rgba(255, 255, 255, 0.08) 58%,
-        transparent 65%,
-        transparent 100%
-      );
-      filter: blur(2px);
-      animation: shimmer 2.2s ease-in-out infinite;
+      top: -50%;
+      left: -50%;
+      width: 80%;
+      height: 200%;
       pointer-events: none;
     }
-    @keyframes shimmer {
-      0% { transform: translateX(-120%); }
-      100% { transform: translateX(220%); }
+    /* Primary shimmer - subtle wavy highlight */
+    .splash-logo-container.is-shimmering::after {
+      background:
+        linear-gradient(
+          90deg,
+          transparent 0%,
+          transparent 38%,
+          rgba(255, 255, 255, 0.04) 43%,
+          rgba(255, 255, 255, 0.12) 48%,
+          rgba(255, 255, 255, 0.15) 50%,
+          rgba(255, 255, 255, 0.12) 52%,
+          rgba(255, 255, 255, 0.04) 57%,
+          transparent 62%,
+          transparent 100%
+        );
+      filter: blur(2px);
+      transform-origin: center center;
+      animation: shimmer-wave 2.2s ease-in-out infinite;
+    }
+    /* Secondary shimmer - soft glow */
+    .splash-logo-container.is-shimmering::before {
+      background:
+        linear-gradient(
+          90deg,
+          transparent 0%,
+          transparent 30%,
+          rgba(255, 255, 255, 0.02) 40%,
+          rgba(255, 255, 255, 0.06) 50%,
+          rgba(255, 255, 255, 0.02) 60%,
+          transparent 70%,
+          transparent 100%
+        );
+      filter: blur(10px);
+      transform-origin: center center;
+      animation: shimmer-wave-soft 2.2s ease-in-out infinite;
+    }
+    @keyframes shimmer-wave {
+      0% {
+        transform: translateX(-160%) rotate(-6deg);
+      }
+      100% {
+        transform: translateX(160%) rotate(-6deg);
+      }
+    }
+    @keyframes shimmer-wave-soft {
+      0% {
+        transform: translateX(-170%) rotate(-8deg);
+      }
+      100% {
+        transform: translateX(150%) rotate(-8deg);
+      }
     }
     /* Mobile adjustments */
     @media (max-width: 768px) {
