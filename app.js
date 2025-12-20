@@ -8,6 +8,7 @@ const App = {
     const currentSection = ref(1);
     const videoReady = ref(false);
     const windowLoaded = ref(false);
+    const imagesReady = ref(false);
     const siteLoaded = ref(false);
     let hasStarted = false;
     const showContent = ref(false);
@@ -98,14 +99,14 @@ const App = {
       {
         number: '03',
         title: 'Nadette',
-        logo: 'assets/nadette_project.png',
+        logo: 'assets/nadette_project.jpg',
         link: 'nadette.html',
         description: 'Nadette is a personal assistant you can easily call to execute tasks using natural voice commands.'
       },
       {
         number: '04',
         title: 'TrueAutoColor',
-        logo: 'assets/TrueAutoColor_project.JPG',
+        logo: 'assets/TrueAutoColor_project.jpg',
         link: 'trueautocolor.html',
         description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names without using plugins.'
       }
@@ -380,7 +381,7 @@ const App = {
     };
 
     const tryStart = () => {
-      if (!hasStarted && videoReady.value && windowLoaded.value) {
+      if (!hasStarted && videoReady.value && windowLoaded.value && imagesReady.value) {
         hasStarted = true;
         // Signal to splash that app is truly ready for interaction
         document.querySelector('.scroll-container')?.classList.add('app-ready');
@@ -437,7 +438,9 @@ const App = {
 
       const checkAllAssetsLoaded = () => {
         if (imagesLoaded === totalImages) {
+          imagesReady.value = true;
           siteLoaded.value = true;
+          tryStart();
         }
       };
 

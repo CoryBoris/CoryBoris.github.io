@@ -109,7 +109,7 @@ const App = {
       {
         number: '03',
         title: 'Nadette',
-        logo: 'assets/nadette_project.png',
+        logo: 'assets/nadette_project.jpg',
         link: 'nadette.html',
         externalLink: 'https://github.com/nadette-agent/nadette-adjoint',
         description: 'Nadette Ai is a virtual assistant powered by Google Gemini, and it can be called and spoken to with natural language and can execute specific tasks such as multiple emails and texts to different people, making calendar events on both google calendar and icalendar, and the ability to hang up after speaking with the assurance that your last spoken requests are captured, something OpenAi doesn\'t yet do in their call feature for their latest llms. Made with Python, Bash, and Html for the email formatting.'
@@ -117,7 +117,7 @@ const App = {
       {
         number: '04',
         title: 'TrueAutoColor',
-        logo: 'assets/TrueAutoColor_project.JPG',
+        logo: 'assets/TrueAutoColor_project.jpg',
         link: 'trueautocolor.html',
         externalLink: 'https://coryboris.gumroad.com/l/TrueAutoColor',
         description: 'TrueAutoColor is a desktop App made with Electron which interacts with Ableton’s native Api creating real-time track and clip color changes from track name changes within Ableton Live. The reason for this was to solve a pain point for a product which does this exact thing, but only existing as a plugin, taking away precious cpu from music making. 55+ copies sold and counting!'
