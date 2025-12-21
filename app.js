@@ -87,28 +87,32 @@ const App = {
         title: 'Newsway',
         logo: 'assets/newsway_project.jpg',
         link: 'newsway.html',
-        description: 'NewsWay is a news summary engine which leverages Google\'s Gemini Ai to deliver concise and digestible summaries of the latest breaking news.'
+        externalLink: 'https://www.newsway.ai',
+        description: 'Newsway News Summary is a real-time news summary system utilizing Python RSS parsing via Google Gemini API to summarize breaking news every ten minutes at only the cost of the compute to run which is a simple pipeline script. Utilizing Gemini\'s innate Sentiment Analysis combined with a backend prompt, I can assign optimism scores to article summaries and as a result articles can be sorted by their optimism scores. Even as an approximate measure, it has proved to reliably separate out events, especially at the extremes.'
       },
       {
         number: '02',
         title: 'GifSig',
         logo: 'assets/gifsig_project.png',
         link: 'gifsig.html',
-        description: 'GifSig is simply an excuse to scribble on your phone but you can also capture your signature as a once-looped high-quality GIF, ideal for email signatures.'
+        externalLink: 'https://www.gifsig.com',
+        description: 'GifSig High Fidelity Loop-Once Signature Generator is just that. It is a faster way for someone to paste their actual dynamically drawn signature into an email, with the assurance that it only will play one time and hold at the end. This site was fun to make but also I find myself just scribbling on it a lot for the fun of scribbling. Because the brush implementation is responsive to drawing speed, making realistic looking strokes actually feels natural. This was made with javascript, and Vercel for the hosting and database, and resend for the account email communications and password resets.'
       },
       {
         number: '03',
         title: 'Nadette',
         logo: 'assets/nadette_project.jpg',
         link: 'nadette.html',
-        description: 'Nadette is a personal assistant you can easily call to execute tasks using natural voice commands.'
+        externalLink: 'https://github.com/nadette-agent/nadette-adjoint',
+        description: 'Nadette Ai is a virtual assistant powered by Google Gemini, and it can be called and spoken to with natural language and can execute specific tasks such as multiple emails and texts to different people, making calendar events on both google calendar and icalendar, and the ability to hang up after speaking with the assurance that your last spoken requests are captured, something OpenAi doesn\'t yet do in their call feature for their latest llms. Made with Python, Bash, and Html for the email formatting.'
       },
       {
         number: '04',
         title: 'TrueAutoColor',
         logo: 'assets/TrueAutoColor_project.jpg',
         link: 'trueautocolor.html',
-        description: 'TrueAutoColor automatically colors your Ableton Live tracks and clips based on their names without using plugins.'
+        externalLink: 'https://coryboris.gumroad.com/l/TrueAutoColor',
+        description: 'TrueAutoColor is a desktop App made with Electron which interacts with Ableton\'s native Api creating real-time track and clip color changes from track name changes within Ableton Live. The reason for this was to solve a pain point for a product which does this exact thing, but only existing as a plugin, taking away precious cpu from music making. 55+ copies sold and counting!'
       }
     ];
 
@@ -387,78 +391,6 @@ const App = {
         // Signal to splash that app is truly ready for interaction
         document.querySelector('.scroll-container')?.classList.add('app-ready');
 
-        // Check if we're returning from a project page
-        const returnSection = sessionStorage.getItem('returnToSection');
-        const isReturning = returnSection !== null;
-        let targetReturnSection = 1;
-        if (isReturning) {
-          sessionStorage.removeItem('returnToSection');
-          targetReturnSection = parseInt(returnSection, 10);
-          if (targetReturnSection < 1 || targetReturnSection > 4) targetReturnSection = 1;
-          currentSection.value = targetReturnSection;
-        }
-
-        // Check if splash was skipped (returning from project with cached video)
-        if (window.splashSkipped) {
-          console.log('App: Splash was skipped, jumping to freeze frame');
-          const videoFwd = videoForwardRef.value;
-          const videoRev = videoReverseRef.value;
-
-          // Set gradient to match target section (can do this immediately)
-          gradientSection.value = targetReturnSection;
-
-          // Jump directly to the freeze frame for the target section
-          const [, freezeFrame] = sectionFrames[targetReturnSection];
-          const targetTime = frameToTime(freezeFrame);
-
-          // Also set reverse video to matching position
-          if (videoRev) {
-            const revFreezeFrame = sectionFramesReverse[targetReturnSection][0];
-            videoRev.currentTime = frameToTime(revFreezeFrame);
-          }
-
-          // Seek forward video and wait for it to complete before showing
-          const onSeeked = () => {
-            // Disable scroll-container transition for instant reveal
-            const scrollContainer = document.querySelector('.scroll-container');
-            if (scrollContainer) {
-              scrollContainer.style.transition = 'none';
-              scrollContainer.style.opacity = '1';
-              // Force reflow
-              scrollContainer.offsetHeight;
-              // Re-enable transitions after a frame
-              requestAnimationFrame(() => {
-                scrollContainer.style.transition = '';
-              });
-            }
-
-            // Now show video and content
-            videoFadedIn.value = true;
-            initialIntroDone.value = true;
-            showContent.value = true;
-
-            // Unlock scrolling after a brief moment
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                isScrollLocked.value = false;
-              });
-            });
-          };
-
-          if (videoFwd) {
-            // If already at position, call directly
-            if (Math.abs(videoFwd.currentTime - targetTime) < 0.05) {
-              onSeeked();
-            } else {
-              videoFwd.addEventListener('seeked', onSeeked, { once: true });
-              videoFwd.currentTime = targetTime;
-            }
-          } else {
-            onSeeked();
-          }
-          return;
-        }
-
         // When site becomes visible, fade in video on frame 0
         window.addEventListener('site-reveal', () => {
           videoFadedIn.value = true;
@@ -467,11 +399,7 @@ const App = {
         // When splash is fully complete, start playback
         window.addEventListener('splash-complete', () => {
           isScrollLocked.value = false;
-          if (isReturning) {
-            playForward(0, targetReturnSection);
-          } else {
-            playForward(0, 1);
-          }
+          playForward(0, 1);
         }, { once: true });
       }
     };
@@ -606,6 +534,10 @@ const App = {
     const copyButtonText = ref('Copy Address');
     const isBouncing = ref(true);
     let bounceTimer = null;
+    const projectOverlay = ref(null); // Currently displayed project for overlay
+    const overlayState = ref('closed'); // 'closed', 'opening', 'open', 'closing'
+    const expandOrigin = ref({ x: 0, y: 0, width: 0, height: 0, logo: '' }); // Logo click position for expand origin
+    const targetHeight = ref(500); // Calculated target height for overlay
 
     const resetBounceTimer = () => {
       isBouncing.value = false;
@@ -775,11 +707,156 @@ const App = {
       }
     };
 
-    const handleProjectClick = (project, sectionIndex) => {
-      // Save current section to sessionStorage before navigating
-      sessionStorage.setItem('returnToSection', sectionIndex.toString());
-      window.location.href = project.link;
+    // Project overlay functions
+    let openOverlayToken = 0;
+    let pendingOpenAnimations = 0;
+    let openOverlayFallbackTimer = null;
+    let closeOverlayToken = 0;
+    let pendingCloseAnimations = 0;
+    let closeOverlayFallbackTimer = null;
+
+    const openProjectOverlay = (project, event) => {
+      // Get the logo element's position for the expand animation
+      const logoEl = event.currentTarget.querySelector('.project-logo');
+      if (logoEl) {
+        const rect = logoEl.getBoundingClientRect();
+        expandOrigin.value = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+          width: rect.width,
+          height: rect.height,
+          logo: project.logo
+        };
+      }
+
+      // Calculate target height based on content
+      // Logo area: 1.5rem (24px) top + 120px logo + 1rem (16px) bottom margin = 160px
+      // Title: ~45px, Description: estimate based on character count, Button: ~60px, Padding: ~48px
+      const descLength = project.description ? project.description.length : 0;
+      const descLines = Math.ceil(descLength / 55); // ~55 chars per line at 600px width
+      const descHeight = descLines * 28; // ~28px per line
+      const calculatedHeight = 160 + 45 + descHeight + 60 + 48;
+      // Clamp between 400 and 80vh
+      const maxVh = window.innerHeight * 0.8;
+      targetHeight.value = Math.min(Math.max(calculatedHeight, 400), maxVh);
+
+      isScrollLocked.value = true;
+      projectOverlay.value = project;
+      overlayState.value = 'opening';
+
+      openOverlayToken++;
+      const token = openOverlayToken;
+      pendingOpenAnimations = expandOrigin.value.logo ? 2 : 1;
+
+      if (openOverlayFallbackTimer) clearTimeout(openOverlayFallbackTimer);
+      openOverlayFallbackTimer = setTimeout(() => {
+        if (token !== openOverlayToken) return;
+        if (overlayState.value !== 'opening') return;
+        overlayState.value = 'open';
+      }, 950);
     };
+
+    const finishOneOpenAnimation = (token) => {
+      if (token !== openOverlayToken) return;
+      if (overlayState.value !== 'opening') return;
+
+      pendingOpenAnimations = Math.max(0, pendingOpenAnimations - 1);
+      if (pendingOpenAnimations !== 0) return;
+
+      if (openOverlayFallbackTimer) {
+        clearTimeout(openOverlayFallbackTimer);
+        openOverlayFallbackTimer = null;
+      }
+      overlayState.value = 'open';
+    };
+
+    const finishOneCloseAnimation = (token) => {
+      if (token !== closeOverlayToken) return;
+      if (overlayState.value !== 'closing') return;
+
+      pendingCloseAnimations = Math.max(0, pendingCloseAnimations - 1);
+      if (pendingCloseAnimations !== 0) return;
+
+      if (closeOverlayFallbackTimer) {
+        clearTimeout(closeOverlayFallbackTimer);
+        closeOverlayFallbackTimer = null;
+      }
+
+      projectOverlay.value = null;
+      overlayState.value = 'closed';
+      isScrollLocked.value = false;
+    };
+
+    const onProjectDetailAnimationEnd = (event) => {
+      if (overlayState.value === 'opening' && event.animationName === 'expandMatte') {
+        finishOneOpenAnimation(openOverlayToken);
+        return;
+      }
+      if (overlayState.value === 'closing' && event.animationName === 'collapseMatte') {
+        finishOneCloseAnimation(closeOverlayToken);
+      }
+    };
+
+    const onAnimatingLogoAnimationEnd = (event) => {
+      if (overlayState.value === 'opening' && event.animationName === 'logoPopIntoPlace') {
+        finishOneOpenAnimation(openOverlayToken);
+        return;
+      }
+      if (overlayState.value === 'closing' && event.animationName === 'logoPopBack') {
+        finishOneCloseAnimation(closeOverlayToken);
+      }
+    };
+
+    const closeProjectOverlay = () => {
+      if (overlayState.value === 'closing') return;
+
+      const performClose = () => {
+        overlayState.value = 'closing';
+
+        closeOverlayToken++;
+        const token = closeOverlayToken;
+        pendingCloseAnimations = expandOrigin.value.logo ? 2 : 1;
+
+        if (closeOverlayFallbackTimer) clearTimeout(closeOverlayFallbackTimer);
+        closeOverlayFallbackTimer = setTimeout(() => {
+          if (token !== closeOverlayToken) return;
+          if (overlayState.value !== 'closing') return;
+          projectOverlay.value = null;
+          overlayState.value = 'closed';
+          isScrollLocked.value = false;
+        }, 950);
+      };
+
+      // Scroll to top before closing so the minimize animation aligns with the logo
+      const contentEl = document.querySelector('.project-detail-content.open');
+      if (contentEl && contentEl.scrollTop > 5) {
+        contentEl.scrollTo({ top: 0, behavior: 'smooth' });
+
+        let checkCount = 0;
+        const checkScroll = () => {
+          if (contentEl.scrollTop <= 2 || checkCount > 60) {
+            contentEl.scrollTop = 0;
+            performClose();
+          } else {
+            checkCount++;
+            requestAnimationFrame(checkScroll);
+          }
+        };
+        requestAnimationFrame(checkScroll);
+      } else {
+        performClose();
+      }
+    };
+
+    const expandStyle = computed(() => {
+      return {
+        '--origin-x': expandOrigin.value.x + 'px',
+        '--origin-y': expandOrigin.value.y + 'px',
+        '--origin-width': expandOrigin.value.width + 'px',
+        '--origin-height': expandOrigin.value.height + 'px',
+        '--target-height': targetHeight.value + 'px'
+      };
+    });
 
     return {
       videoForwardRef,
@@ -817,7 +894,14 @@ const App = {
       closeAllOverlays,
       downloadCV,
       copyEmail,
-      handleProjectClick,
+      projectOverlay,
+      openProjectOverlay,
+      closeProjectOverlay,
+      overlayState,
+      onProjectDetailAnimationEnd,
+      onAnimatingLogoAnimationEnd,
+      expandOrigin,
+      expandStyle,
       isBouncing,
       resetBounceTimer
     };
@@ -950,10 +1034,44 @@ const App = {
           class="section-content"
           :class="['section-' + (index + 1), { active: currentSection === index + 1 && showContent, exiting: exitingSection === index + 1 }]"
         >
-          <div class="project-link" @click="handleProjectClick(project, index + 1)">
+          <div class="project-link" @click="openProjectOverlay(project, $event)">
             <img v-if="project.logo" :src="project.logo" :alt="project.title" class="project-logo">
             <h2 v-else>{{ project.title }}</h2>
-            <div class="project-tooltip">{{ project.description }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Detail Overlay -->
+      <div
+        v-if="projectOverlay"
+        class="project-detail-overlay"
+        :class="overlayState"
+        @click.self="closeProjectOverlay"
+      >
+        <div
+          class="project-detail-content"
+          :class="overlayState"
+          :style="expandStyle"
+          @animationend.self="onProjectDetailAnimationEnd"
+        >
+          <img
+            v-if="expandOrigin.logo"
+            :src="expandOrigin.logo"
+            class="animating-logo"
+            :class="overlayState"
+            @animationend.self="onAnimatingLogoAnimationEnd"
+          >
+          <button class="project-detail-close" @click="closeProjectOverlay">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+          <div class="content-inner" :class="{ visible: overlayState === 'open' }">
+            <div class="project-detail-logo-spacer"></div>
+            <h2 class="project-detail-title">{{ projectOverlay.title }}</h2>
+            <p class="project-detail-description">{{ projectOverlay.description }}</p>
+            <a :href="projectOverlay.externalLink" class="project-detail-link" target="_blank" rel="noopener noreferrer">View Project</a>
           </div>
         </div>
       </div>
