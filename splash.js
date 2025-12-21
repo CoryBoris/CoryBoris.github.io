@@ -358,13 +358,21 @@
    */
   function waitForAppReady() {
     return new Promise((resolve) => {
+      let resolved = false;
+
+      const markReady = () => {
+        if (resolved) return;
+        resolved = true;
+        console.log('Splash: app ready');
+        appReady = true;
+        resolve();
+      };
+
       const checkReady = () => {
         // app-ready is set by tryStart() when ALL conditions are met
         const scrollContainer = document.querySelector('.scroll-container.app-ready');
         if (scrollContainer) {
-          console.log('Splash: app ready');
-          appReady = true;
-          resolve();
+          markReady();
           return true;
         }
         return false;
@@ -373,7 +381,10 @@
       // Check immediately
       if (checkReady()) return;
 
-      // Set up a MutationObserver to watch for the class change
+      // Listen for custom event (most reliable)
+      window.addEventListener('app-ready', markReady, { once: true });
+
+      // Set up a MutationObserver as backup
       const observer = new MutationObserver((mutations) => {
         if (checkReady()) {
           observer.disconnect();
@@ -391,11 +402,10 @@
       // Safety timeout - only as absolute last resort (slow network, stuck video)
       // 15 seconds is long enough that if we hit this, something is actually broken
       setTimeout(() => {
-        if (!appReady) {
+        if (!resolved) {
           console.warn('Splash: app ready timeout (15s) - proceeding anyway');
-          appReady = true;
+          markReady();
           observer.disconnect();
-          resolve();
         }
       }, 15000);
     });

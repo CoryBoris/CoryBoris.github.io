@@ -492,7 +492,12 @@ const App = {
       if (!hasStarted && videoReady.value && windowLoaded.value && siteLoaded.value) {
         hasStarted = true;
         // Signal to splash that app is truly ready for interaction
-        document.querySelector('.scroll-container')?.classList.add('app-ready');
+        const scrollContainer = document.querySelector('.scroll-container');
+        if (scrollContainer) {
+          scrollContainer.classList.add('app-ready');
+        }
+        // Dispatch event for reliable detection by splash.js
+        window.dispatchEvent(new CustomEvent('app-ready'));
       }
     };
 
@@ -573,11 +578,61 @@ const App = {
       const onVideoReady = () => {
         videosLoaded++;
         if (videosLoaded === 2) {
+          console.log('Mobile: Both videos fully buffered');
           videoReady.value = true;
           siteLoaded.value = true; // Enable UI visibility immediately - don't wait for images
           tryStart();
         }
         checkAllAssetsLoaded();
+      };
+
+      // Check if a video is fully buffered (entire duration downloaded)
+      const isFullyBuffered = (video) => {
+        if (!video || !video.duration || video.duration === Infinity) return false;
+        if (video.buffered.length === 0) return false;
+        // Check if the end of the last buffered range covers the full duration
+        const bufferedEnd = video.buffered.end(video.buffered.length - 1);
+        return bufferedEnd >= video.duration - 0.1;
+      };
+
+      // Set up buffer monitoring for a video
+      const waitForFullBuffer = (video, label) => {
+        let resolved = false;
+
+        const checkBuffer = () => {
+          if (resolved) return;
+          if (isFullyBuffered(video)) {
+            resolved = true;
+            console.log(`Mobile: ${label} fully buffered`);
+            onVideoReady();
+          }
+        };
+
+        // Check on progress events (fired as data downloads)
+        video.addEventListener('progress', checkBuffer);
+
+        // Also check when we know duration (needed for buffer calculation)
+        video.addEventListener('loadedmetadata', checkBuffer, { once: true });
+
+        // Check periodically as fallback (some browsers don't fire progress reliably)
+        const intervalId = setInterval(() => {
+          if (resolved) {
+            clearInterval(intervalId);
+            return;
+          }
+          checkBuffer();
+        }, 500);
+
+        // Safety timeout - if video hasn't fully buffered in 20 seconds, proceed anyway
+        // This prevents infinite splash on very slow connections
+        setTimeout(() => {
+          if (!resolved) {
+            resolved = true;
+            clearInterval(intervalId);
+            console.warn(`Mobile: ${label} buffer timeout (20s) - proceeding with partial buffer`);
+            onVideoReady();
+          }
+        }, 20000);
       };
 
       // Preload all project images
@@ -606,6 +661,7 @@ const App = {
 
       if (document.readyState === 'complete') {
         windowLoaded.value = true;
+        tryStart(); // Ensure tryStart is called when already loaded
       } else {
         window.addEventListener('load', onWindowLoad);
       }
@@ -613,14 +669,14 @@ const App = {
       if (videoFwd) {
         videoFwd.muted = true;
         videoFwd.playsInline = true;
-        videoFwd.addEventListener('loadeddata', onVideoReady, { once: true });
+        waitForFullBuffer(videoFwd, 'Forward video');
         videoFwd.load();
       }
 
       if (videoRev) {
         videoRev.muted = true;
         videoRev.playsInline = true;
-        videoRev.addEventListener('loadeddata', onVideoReady, { once: true });
+        waitForFullBuffer(videoRev, 'Reverse video');
         videoRev.load();
       }
     });
