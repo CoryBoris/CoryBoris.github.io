@@ -398,6 +398,21 @@ const App = {
           currentSection.value = targetReturnSection;
         }
 
+        // Check if splash was skipped (returning from project with cached video)
+        if (window.splashSkipped) {
+          console.log('App: Splash was skipped, proceeding immediately');
+          // Show video immediately
+          videoFadedIn.value = true;
+          // Short delay to ensure video is painted, then start playback
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              isScrollLocked.value = false;
+              playForward(0, targetReturnSection);
+            });
+          });
+          return;
+        }
+
         // When site becomes visible, fade in video on frame 0
         window.addEventListener('site-reveal', () => {
           videoFadedIn.value = true;

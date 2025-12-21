@@ -1150,12 +1150,12 @@ const App = {
           </div>
           <div class="cv-pdf-container" v-if="cvPdfReady">
             <object
-              :data="cvPdfUrl"
+              :data="cvPdfUrl + '#view=FitH&page=1'"
               type="application/pdf"
               class="cv-pdf-object"
             >
               <iframe
-                :src="cvPdfUrl"
+                :src="cvPdfUrl + '#view=FitH&page=1'"
                 class="cv-pdf-iframe"
               ></iframe>
             </object>
