@@ -816,8 +816,28 @@ body:has(.cv-overlay.active) .scroll-container {
   justify-content: space-between;
   align-items: center;
   padding: 12px 16px;
+  gap: 8px;
   background: rgba(30, 30, 30, 0.95);
   border-radius: 12px 12px 0 0;
+}
+
+.cv-overlay-back {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.cv-overlay-back:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
 }
 
 .cv-overlay-close {
@@ -905,11 +925,5 @@ body:has(.cv-overlay.active) .scroll-container {
 
 @keyframes cvSpin {
   to { transform: rotate(360deg); }
-}
-
-/* Hide hamburger when CV overlay is open */
-body:has(.cv-overlay.active) .hamburger-btn {
-  opacity: 0;
-  pointer-events: none;
 }
 
