@@ -690,10 +690,12 @@ const App = {
           copyButtonText.value = 'Copy Address';
           // Unlock scroll when fully exiting to body
           unlockBodyScroll();
+          isScrollLocked.value = false;
         }, closeDuration);
       } else {
         menuOpen.value = true;
         lockBodyScroll();
+        isScrollLocked.value = true;
       }
     };
 
@@ -735,12 +737,11 @@ const App = {
     const openCVOverlay = () => {
       cvOverlayOpen.value = true;
       menuOpen.value = false;
-      // Dismiss tap-to-play if still showing
-      if (needsTapToStart.value) {
-        needsTapToStart.value = false;
-      }
+      // Note: Don't dismiss needsTapToStart here - only handleTapToStart should do that
+      // The tap overlay hides naturally when menu/CV is open via template v-if
       // Keep scroll locked (already locked from menu)
       lockBodyScroll();
+      isScrollLocked.value = true;
       // Reset menu states after close animation
       setTimeout(() => {
         emailView.value = false;
@@ -758,6 +759,7 @@ const App = {
       menuOpen.value = true;
       // Keep scroll locked (going back to menu)
       lockBodyScroll();
+      isScrollLocked.value = true;
       // Reset flag after menu is shown
       setTimeout(() => {
         returningFromCV.value = false;
@@ -1206,8 +1208,8 @@ const App = {
         <div>{{ swipeIndicator.text }}</div>
       </div>
 
-      <!-- Tap to start overlay (mobile only) - hidden when menu is open or closing -->
-      <div v-if="needsTapToStart && videoReady && !menuOpen && !menuClosing" class="tap-to-start" @click="handleTapToStart">
+      <!-- Tap to start overlay (mobile only) - hidden when menu or CV overlay is open -->
+      <div v-if="needsTapToStart && videoReady && !menuOpen && !menuClosing && !cvOverlayOpen" class="tap-to-start" @click="handleTapToStart">
         <div class="tap-to-start-content">
           <div class="tap-icon">👆</div>
           <div>tap to activate Cory's Portfolio</div>

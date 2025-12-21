@@ -572,10 +572,12 @@ const App = {
           cvView.value = false;
           copyButtonText.value = 'Copy Address';
           unlockBodyScroll();
+          isScrollLocked.value = false;
         }, delay);
       } else {
         menuOpen.value = true;
         lockBodyScroll();
+        isScrollLocked.value = true;
       }
     };
 
@@ -619,6 +621,7 @@ const App = {
       menuOpen.value = false;
       // Keep scroll locked
       lockBodyScroll();
+      isScrollLocked.value = true;
       // Reset menu states after close animation
       setTimeout(() => {
         emailView.value = false;
@@ -635,6 +638,7 @@ const App = {
       menuOpen.value = true;
       // Keep scroll locked (going back to menu)
       lockBodyScroll();
+      isScrollLocked.value = true;
       // Reset flag after menu is shown
       setTimeout(() => {
         returningFromCV.value = false;
