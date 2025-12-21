@@ -392,6 +392,12 @@ body:has(.cv-overlay.active) .scroll-container {
   display: flex;
   flex-direction: column;
   gap: 15px;
+  transition: opacity 0.3s ease;
+}
+
+.section-dots.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .section-dot {

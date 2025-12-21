@@ -1223,7 +1223,7 @@ const App = {
       </div>
 
       <!-- Section dots navigation -->
-      <div class="section-dots">
+      <div class="section-dots" :class="{ hidden: needsTapToStart }">
         <div
           v-for="i in 4"
           :key="i"
