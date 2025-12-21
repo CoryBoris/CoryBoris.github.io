@@ -16,6 +16,10 @@
   let shimmerCycleComplete = false;
   let appReady = false;
 
+  // CV PDF preload state (exposed globally for app.js/mobile-app.js)
+  window.cvPdfLoaded = false;
+  window.cvPdfBlobUrl = '';
+
   /**
    * Hide the splash screen and show the main site
    * Background stays constant, only content transitions:
@@ -141,6 +145,34 @@
       waitForStableViewport().then(resolve);
     });
   }
+
+  /**
+   * Preload CV PDF and store as blob URL for instant display later
+   * This runs in parallel with other splash assets - doesn't block splash
+   */
+  function preloadCVPdf() {
+    const cvPdfSrc = 'assets/Cory Boris Curriculum Vitae.pdf';
+
+    fetch(cvPdfSrc, { cache: 'force-cache' })
+      .then(response => {
+        if (!response.ok) throw new Error(`CV PDF fetch failed: ${response.status}`);
+        return response.blob();
+      })
+      .then(blob => {
+        window.cvPdfBlobUrl = URL.createObjectURL(blob);
+        window.cvPdfLoaded = true;
+        console.log('Splash: CV PDF preloaded');
+      })
+      .catch(err => {
+        console.warn('Splash: CV PDF preload failed, will load on demand:', err);
+        // Fallback - set loaded true but use direct URL
+        window.cvPdfBlobUrl = cvPdfSrc;
+        window.cvPdfLoaded = true;
+      });
+  }
+
+  // Start CV PDF preload immediately (runs in background, doesn't block splash)
+  preloadCVPdf();
 
   /**
    * Preload an image and return a promise

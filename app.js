@@ -537,6 +537,10 @@ const App = {
 
     const menuOpen = ref(false);
     const emailView = ref(false);
+    const cvView = ref(false);
+    const cvOverlayOpen = ref(false);
+    const cvPdfReady = ref(false);
+    const cvPdfUrl = ref('');
     const copyButtonText = ref('Copy Address');
     const isBouncing = ref(true);
     let bounceTimer = null;
@@ -549,16 +553,29 @@ const App = {
       }, 9000);
     };
 
+    const lockBodyScroll = () => {
+      document.body.style.overflow = 'hidden';
+    };
+
+    const unlockBodyScroll = () => {
+      document.body.style.overflow = '';
+    };
+
     const toggleMenu = () => {
       resetBounceTimer();
-      menuOpen.value = !menuOpen.value;
-      if (!menuOpen.value) {
-        // Shorter delay if in email view (fast close), else normal delay
-        const delay = emailView.value ? 600 : 500;
+      if (menuOpen.value) {
+        menuOpen.value = false;
+        // Shorter delay if in email/cv view (fast close), else normal delay (halved)
+        const delay = (emailView.value || cvView.value) ? 300 : 400;
         setTimeout(() => {
           emailView.value = false;
+          cvView.value = false;
           copyButtonText.value = 'Copy Address';
+          unlockBodyScroll();
         }, delay);
+      } else {
+        menuOpen.value = true;
+        lockBodyScroll();
       }
     };
 
@@ -568,6 +585,69 @@ const App = {
 
     const hideEmail = () => {
       emailView.value = false;
+    };
+
+    const showCV = () => {
+      cvView.value = true;
+    };
+
+    const hideCV = () => {
+      cvView.value = false;
+    };
+
+    // Initialize CV URL from splash preload on mount
+    const initCVFromPreload = () => {
+      if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
+        cvPdfUrl.value = window.cvPdfBlobUrl;
+        cvPdfReady.value = true;
+      } else {
+        // Check periodically until loaded
+        const checkInterval = setInterval(() => {
+          if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
+            cvPdfUrl.value = window.cvPdfBlobUrl;
+            cvPdfReady.value = true;
+            clearInterval(checkInterval);
+          }
+        }, 100);
+      }
+    };
+    // Call immediately to start tracking preload
+    initCVFromPreload();
+
+    const openCVOverlay = () => {
+      cvOverlayOpen.value = true;
+      menuOpen.value = false;
+      // Keep scroll locked
+      lockBodyScroll();
+      // Reset menu states after close animation
+      setTimeout(() => {
+        emailView.value = false;
+        cvView.value = false;
+      }, 250);
+    };
+
+    const returningFromCV = ref(false);
+
+    const closeCVOverlay = () => {
+      cvOverlayOpen.value = false;
+      // Return to hamburger menu instantly (no animation)
+      returningFromCV.value = true;
+      menuOpen.value = true;
+      // Keep scroll locked (going back to menu)
+      lockBodyScroll();
+      // Reset flag after menu is shown
+      setTimeout(() => {
+        returningFromCV.value = false;
+      }, 50);
+    };
+
+    const downloadCV = () => {
+      const link = document.createElement('a');
+      link.href = cvPdfUrl.value || 'assets/Cory Boris Curriculum Vitae.pdf';
+      link.download = 'Cory Boris Curriculum Vitae.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     };
 
     const copyEmail = () => {
@@ -627,10 +707,20 @@ const App = {
       videoFadedIn,
       menuOpen,
       emailView,
+      cvView,
+      cvOverlayOpen,
+      cvPdfReady,
+      cvPdfUrl,
+      returningFromCV,
       copyButtonText,
       toggleMenu,
       showEmail,
       hideEmail,
+      showCV,
+      hideCV,
+      openCVOverlay,
+      closeCVOverlay,
+      downloadCV,
       copyEmail,
       handleProjectClick,
       isBouncing,
@@ -677,12 +767,13 @@ const App = {
       </button>
 
       <!-- Menu Overlay -->
-      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView }">
-        <div class="menu-content" :class="{ 'email-mode': emailView }">
-          <nav class="menu-nav" :class="{ hidden: emailView }">
+      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'cv-mode': cvView, 'instant': returningFromCV }">
+        <div class="menu-content" :class="{ 'email-mode': emailView, 'cv-mode': cvView }">
+          <nav class="menu-nav" :class="{ hidden: emailView || cvView }">
             <a href="#about">About Me</a>
             <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+            <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
             <a href="#" @click.prevent="showEmail">Email</a>
           </nav>
 
@@ -695,6 +786,59 @@ const App = {
              </button>
              <a href="mailto:CoryWBoris@gmail.com" class="email-link">CoryWBoris@gmail.com</a>
              <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
+          </div>
+
+          <div class="cv-view" :class="{ active: cvView }">
+             <button class="menu-back-btn" @click="hideCV">
+               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M19 12H5M12 19l-7-7 7-7"/>
+               </svg>
+               Back
+             </button>
+             <div class="cv-title">Curriculum Vitae</div>
+             <button class="cv-open-btn" @click="openCVOverlay">
+               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                 <polyline points="14 2 14 8 20 8"/>
+                 <line x1="16" y1="13" x2="8" y2="13"/>
+                 <line x1="16" y1="17" x2="8" y2="17"/>
+                 <polyline points="10 9 9 9 8 9"/>
+               </svg>
+               View Resume
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CV Overlay -->
+      <div class="cv-overlay" :class="{ active: cvOverlayOpen }" @click.self="closeCVOverlay">
+        <div class="cv-overlay-content">
+          <div class="cv-overlay-header">
+            <button class="cv-overlay-close" @click="closeCVOverlay">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <button class="cv-overlay-download" @click="downloadCV">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              Download
+            </button>
+          </div>
+          <div class="cv-pdf-container" v-if="cvPdfReady">
+            <iframe
+              :src="cvPdfUrl + '#toolbar=0&navpanes=0&scrollbar=1'"
+              type="application/pdf"
+              class="cv-pdf-iframe"
+            ></iframe>
+          </div>
+          <div class="cv-loading" v-else>
+            <div class="cv-loading-spinner"></div>
+            <span>Loading CV...</span>
           </div>
         </div>
       </div>
