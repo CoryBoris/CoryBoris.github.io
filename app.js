@@ -400,14 +400,33 @@ const App = {
 
         // Check if splash was skipped (returning from project with cached video)
         if (window.splashSkipped) {
-          console.log('App: Splash was skipped, proceeding immediately');
-          // Show video immediately
+          console.log('App: Splash was skipped, jumping to freeze frame');
+          const videoFwd = videoForwardRef.value;
+          const videoRev = videoReverseRef.value;
+
+          // Jump directly to the freeze frame for the target section
+          const [, freezeFrame] = sectionFrames[targetReturnSection];
+          if (videoFwd) {
+            videoFwd.currentTime = frameToTime(freezeFrame);
+          }
+          // Also set reverse video to matching position
+          if (videoRev) {
+            const revFreezeFrame = sectionFramesReverse[targetReturnSection][0];
+            videoRev.currentTime = frameToTime(revFreezeFrame);
+          }
+
+          // Set gradient to match target section
+          gradientSection.value = targetReturnSection;
+
+          // Show video and content immediately
           videoFadedIn.value = true;
-          // Short delay to ensure video is painted, then start playback
+          initialIntroDone.value = true;
+          showContent.value = true;
+
+          // Unlock scrolling after a brief moment
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               isScrollLocked.value = false;
-              playForward(0, targetReturnSection);
             });
           });
           return;
