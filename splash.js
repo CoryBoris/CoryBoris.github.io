@@ -32,12 +32,22 @@
         window.cvPdfBlobUrl = 'assets/Cory Boris Curriculum Vitae.pdf';
         window.cvPdfLoaded = true;
       });
-    // Immediately hide splash and show site
+    // Immediately hide splash and show site (no transition)
     splashOverlay.style.display = 'none';
     document.body.classList.remove('splash-active');
     const app = document.getElementById('app');
     const slatOverlay = document.getElementById('slat-overlay');
-    if (app) app.classList.add('site-visible');
+    if (app) {
+      // Disable transition for instant reveal when returning from project
+      app.style.transition = 'none';
+      app.classList.add('site-visible');
+      // Force reflow to apply styles immediately
+      app.offsetHeight;
+      // Re-enable transitions for future use (after a frame)
+      requestAnimationFrame(() => {
+        app.style.transition = '';
+      });
+    }
     if (slatOverlay) slatOverlay.style.display = 'none';
     return;
   }

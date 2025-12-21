@@ -404,31 +404,58 @@ const App = {
           const videoFwd = videoForwardRef.value;
           const videoRev = videoReverseRef.value;
 
+          // Set gradient to match target section (can do this immediately)
+          gradientSection.value = targetReturnSection;
+
           // Jump directly to the freeze frame for the target section
           const [, freezeFrame] = sectionFrames[targetReturnSection];
-          if (videoFwd) {
-            videoFwd.currentTime = frameToTime(freezeFrame);
-          }
+          const targetTime = frameToTime(freezeFrame);
+
           // Also set reverse video to matching position
           if (videoRev) {
             const revFreezeFrame = sectionFramesReverse[targetReturnSection][0];
             videoRev.currentTime = frameToTime(revFreezeFrame);
           }
 
-          // Set gradient to match target section
-          gradientSection.value = targetReturnSection;
+          // Seek forward video and wait for it to complete before showing
+          const onSeeked = () => {
+            // Disable scroll-container transition for instant reveal
+            const scrollContainer = document.querySelector('.scroll-container');
+            if (scrollContainer) {
+              scrollContainer.style.transition = 'none';
+              scrollContainer.style.opacity = '1';
+              // Force reflow
+              scrollContainer.offsetHeight;
+              // Re-enable transitions after a frame
+              requestAnimationFrame(() => {
+                scrollContainer.style.transition = '';
+              });
+            }
 
-          // Show video and content immediately
-          videoFadedIn.value = true;
-          initialIntroDone.value = true;
-          showContent.value = true;
+            // Now show video and content
+            videoFadedIn.value = true;
+            initialIntroDone.value = true;
+            showContent.value = true;
 
-          // Unlock scrolling after a brief moment
-          requestAnimationFrame(() => {
+            // Unlock scrolling after a brief moment
             requestAnimationFrame(() => {
-              isScrollLocked.value = false;
+              requestAnimationFrame(() => {
+                isScrollLocked.value = false;
+              });
             });
-          });
+          };
+
+          if (videoFwd) {
+            // If already at position, call directly
+            if (Math.abs(videoFwd.currentTime - targetTime) < 0.05) {
+              onSeeked();
+            } else {
+              videoFwd.addEventListener('seeked', onSeeked, { once: true });
+              videoFwd.currentTime = targetTime;
+            }
+          } else {
+            onSeeked();
+          }
           return;
         }
 
