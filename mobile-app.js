@@ -1090,10 +1090,10 @@ const App = {
       <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'cv-mode': cvView, 'instant': returningFromCV }">
         <div class="menu-content" :class="{ 'email-mode': emailView, 'cv-mode': cvView }">
           <nav class="menu-nav" :class="{ hidden: emailView || cvView }">
+          <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
             <a href="#about">About Me</a>
-            <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
-            <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
+            <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="#" @click.prevent="showEmail">Email</a>
           </nav>
 
