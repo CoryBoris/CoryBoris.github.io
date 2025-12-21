@@ -427,13 +427,14 @@ const App = {
 
     // Handle wheel events for section-by-section scrolling
     const handleWheel = (e) => {
-      resetBounceTimer();
       if (needsTapToStart.value) {
         e.preventDefault();
         return; // Block scroll if tap-to-start is active
       }
       if (isScrollLocked.value) return; // Allow default scroll (for overlay), skip custom nav
 
+      // Only reset bounce timer when actually scrolling (not blocked)
+      resetBounceTimer();
       e.preventDefault(); // Prevent default only when handling custom section nav
 
       const delta = e.deltaY;
@@ -672,7 +673,7 @@ const App = {
     };
 
     const toggleMenu = () => {
-      resetBounceTimer();
+      // Don't reset bounce timer here - only actual scrolling should reset it
       // If CV overlay is open, close everything
       if (cvOverlayOpen.value) {
         cvOverlayOpen.value = false;

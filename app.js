@@ -329,10 +329,11 @@ const App = {
     let touchStartY = 0;
 
     function handleWheel(e) {
-      resetBounceTimer();
       e.preventDefault();
       if (isScrollLocked.value) return;
 
+      // Only reset bounce timer when actually scrolling (not blocked)
+      resetBounceTimer();
       const delta = e.deltaY;
       if (delta > 20 && currentSection.value < 4) {
         const fromSection = currentSection.value;
@@ -562,7 +563,7 @@ const App = {
     };
 
     const toggleMenu = () => {
-      resetBounceTimer();
+      // Don't reset bounce timer here - only actual scrolling should reset it
       // If CV overlay is open, close everything
       if (cvOverlayOpen.value) {
         cvOverlayOpen.value = false;
