@@ -1197,8 +1197,36 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   justify-content: space-between;
   align-items: center;
   padding: 10px 12px;
+  gap: 8px;
   background: rgba(30, 30, 30, 0.95);
   border-radius: 16px 16px 0 0;
+}
+
+.cv-overlay-back {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.28);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(142, 142, 147, 0.65);
+  border-radius: 50%;
+  color: #1c1c1e;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.cv-overlay-back:active {
+  background: rgba(255, 255, 255, 0.38);
+  transform: scale(0.95);
+}
+
+.cv-overlay-back svg {
+  stroke: #1c1c1e;
 }
 
 .cv-overlay-close {
@@ -1381,12 +1409,5 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
 
 @keyframes cvSpin {
   to { transform: rotate(360deg); }
-}
-
-/* Hide hamburger when CV overlay is open */
-body:has(.cv-overlay.active) .hamburger-btn {
-  opacity: 0;
-  pointer-events: none;
-  visibility: hidden;
 }
 

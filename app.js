@@ -563,6 +563,20 @@ const App = {
 
     const toggleMenu = () => {
       resetBounceTimer();
+      // If CV overlay is open, close everything
+      if (cvOverlayOpen.value) {
+        cvOverlayOpen.value = false;
+        menuOpen.value = false;
+        setTimeout(() => {
+          emailView.value = false;
+          cvView.value = false;
+          copyButtonText.value = 'Copy Address';
+          unlockBodyScroll();
+          isScrollLocked.value = false;
+        }, 300);
+        return;
+      }
+
       if (menuOpen.value) {
         menuOpen.value = false;
         // Shorter delay if in email/cv view (fast close), else normal delay (halved)
@@ -645,6 +659,20 @@ const App = {
       }, 50);
     };
 
+    // Close CV overlay and menu entirely, return to body
+    const closeAllOverlays = () => {
+      cvOverlayOpen.value = false;
+      menuOpen.value = false;
+      // Fast close since coming from CV
+      setTimeout(() => {
+        emailView.value = false;
+        cvView.value = false;
+        copyButtonText.value = 'Copy Address';
+        unlockBodyScroll();
+        isScrollLocked.value = false;
+      }, 300);
+    };
+
     const downloadCV = () => {
       const link = document.createElement('a');
       link.href = cvPdfUrl.value || 'assets/Cory Boris Curriculum Vitae.pdf';
@@ -724,6 +752,7 @@ const App = {
       hideCV,
       openCVOverlay,
       closeCVOverlay,
+      closeAllOverlays,
       downloadCV,
       copyEmail,
       handleProjectClick,
@@ -764,7 +793,7 @@ const App = {
       </div>
 
       <!-- Hamburger Menu Button -->
-      <button class="hamburger-btn" :class="{ active: menuOpen }" @click="toggleMenu">
+      <button class="hamburger-btn" :class="{ active: menuOpen || cvOverlayOpen }" @click="toggleMenu">
         <span></span>
         <span></span>
         <span></span>
@@ -815,13 +844,12 @@ const App = {
       </div>
 
       <!-- CV Overlay -->
-      <div class="cv-overlay" :class="{ active: cvOverlayOpen }" @click.self="closeCVOverlay">
+      <div class="cv-overlay" :class="{ active: cvOverlayOpen }" @click.self="closeAllOverlays">
         <div class="cv-overlay-content">
           <div class="cv-overlay-header">
-            <button class="cv-overlay-close" @click="closeCVOverlay">
+            <button class="cv-overlay-back" @click="closeCVOverlay">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </button>
             <button class="cv-overlay-download" @click="downloadCV">
