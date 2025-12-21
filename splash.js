@@ -9,49 +9,6 @@
     return;
   }
 
-  // Desktop only: Check if we should skip splash (returning from project page with cached video)
-  const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
-  const splashCompleted = sessionStorage.getItem('splashCompleted');
-  const returningFromProject = sessionStorage.getItem('returnToSection') !== null;
-
-  if (!isTouchDevice && splashCompleted === 'true' && returningFromProject) {
-    console.log('Splash: Skipping (returning from project, video cached)');
-    // Set global flag so app.js knows splash was skipped (checked on mount)
-    window.splashSkipped = true;
-    // Set up CV preload globals even when skipping splash
-    window.cvPdfLoaded = false;
-    window.cvPdfBlobUrl = '';
-    // Start CV preload in background
-    fetch('assets/Cory Boris Curriculum Vitae.pdf', { cache: 'force-cache' })
-      .then(response => response.ok ? response.blob() : Promise.reject())
-      .then(blob => {
-        window.cvPdfBlobUrl = URL.createObjectURL(blob);
-        window.cvPdfLoaded = true;
-      })
-      .catch(() => {
-        window.cvPdfBlobUrl = 'assets/Cory Boris Curriculum Vitae.pdf';
-        window.cvPdfLoaded = true;
-      });
-    // Immediately hide splash and show site (no transition)
-    splashOverlay.style.display = 'none';
-    document.body.classList.remove('splash-active');
-    const app = document.getElementById('app');
-    const slatOverlay = document.getElementById('slat-overlay');
-    if (app) {
-      // Disable transition for instant reveal when returning from project
-      app.style.transition = 'none';
-      app.classList.add('site-visible');
-      // Force reflow to apply styles immediately
-      app.offsetHeight;
-      // Re-enable transitions for future use (after a frame)
-      requestAnimationFrame(() => {
-        app.style.transition = '';
-      });
-    }
-    if (slatOverlay) slatOverlay.style.display = 'none';
-    return;
-  }
-
   // Track state
   let logoLoaded = false;
   let signatureLoaded = false;
