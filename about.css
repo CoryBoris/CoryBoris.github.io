@@ -214,9 +214,9 @@ body.menu-open {
 .content-block {
   display: flex;
   align-items: center;
-  gap: 4rem;
-  width: 100%;
-  max-width: 1000px;
+  gap: clamp(2rem, 4vw, 5rem);
+  width: 90%;
+  max-width: 1400px;
 }
 
 .content-block.text-left {
@@ -229,21 +229,21 @@ body.menu-open {
 
 .text-content {
   flex: 1;
-  max-width: 500px;
+  max-width: clamp(400px, 35vw, 600px);
   font-family: 'Roboto', sans-serif;
   background: rgba(255, 255, 255, 0.03);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  padding: 2.5rem;
+  padding: clamp(1.5rem, 3vw, 3rem);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.25),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .text-content h2 {
-  font-size: 2rem;
+  font-size: clamp(1.5rem, 2.5vw, 2.5rem);
   font-weight: 400;
   color: rgba(255, 255, 255, 0.95);
   margin-bottom: 1.25rem;
@@ -252,7 +252,7 @@ body.menu-open {
 
 .text-content p {
   font-family: 'Roboto', sans-serif;
-  font-size: 1.15rem;
+  font-size: clamp(1rem, 1.3vw, 1.3rem);
   font-weight: 300;
   line-height: 1.75;
   color: rgba(255, 255, 255, 0.7);
@@ -268,13 +268,13 @@ body.menu-open {
   display: flex;
   justify-content: center;
   align-items: center;
-  max-width: 400px;
+  max-width: clamp(300px, 35vw, 550px);
 }
 
 .section-photo {
   width: auto;
   max-width: 100%;
-  max-height: 400px;
+  max-height: clamp(300px, 50vh, 550px);
   height: auto;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
