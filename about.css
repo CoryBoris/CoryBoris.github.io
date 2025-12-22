@@ -87,12 +87,14 @@ body.menu-open {
 }
 
 .header-title h1 {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 1.5rem;
   font-weight: 400;
   letter-spacing: 0.15em;
   text-transform: uppercase;
   white-space: nowrap;
   opacity: 0.9;
+  line-height: 44px;
 }
 
 /* Hero Section */
@@ -166,13 +168,16 @@ body.menu-open {
   transform: translateX(-50%);
   text-align: center;
   color: rgba(255, 255, 255, 0.6);
-  animation: bounce 2s infinite;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   cursor: pointer;
   transition: opacity 0.3s ease;
+}
+
+.scroll-indicator.bouncing {
+  animation: bounce 2s infinite;
 }
 
 .scroll-indicator.hidden {
@@ -940,6 +945,6 @@ body.menu-open {
   }
 
   .menu-content a {
-    font-size: 2rem;
+    font-size: 1.5rem;
   }
 }

@@ -48,6 +48,32 @@
   let currentSection = 0;
   const totalSections = sections.length;
 
+  // Scroll indicator bounce timer - only bounce after 7 seconds of no scrolling
+  let bounceTimer = null;
+  const BOUNCE_DELAY = 7000;
+
+  function startBounceTimer() {
+    stopBounceTimer();
+    if (scrollIndicator && currentSection === 0) {
+      bounceTimer = setTimeout(() => {
+        scrollIndicator.classList.add('bouncing');
+      }, BOUNCE_DELAY);
+    }
+  }
+
+  function stopBounceTimer() {
+    if (bounceTimer) {
+      clearTimeout(bounceTimer);
+      bounceTimer = null;
+    }
+    if (scrollIndicator) {
+      scrollIndicator.classList.remove('bouncing');
+    }
+  }
+
+  // Start the initial bounce timer
+  startBounceTimer();
+
   // Scroll to a specific section (for dots/keyboard)
   function scrollToSection(index) {
     if (index < 0 || index >= totalSections) return;
@@ -60,6 +86,9 @@
     const sectionHeight = window.innerHeight;
     const newSection = Math.round(scrollTop / sectionHeight);
 
+    // Reset bounce timer on any scroll activity
+    startBounceTimer();
+
     if (newSection !== currentSection && newSection >= 0 && newSection < totalSections) {
       currentSection = newSection;
       dots.forEach((dot, i) => {
@@ -69,8 +98,10 @@
       // Hide scroll indicator after first section
       if (currentSection > 0 && scrollIndicator) {
         scrollIndicator.classList.add('hidden');
+        stopBounceTimer();
       } else if (currentSection === 0 && scrollIndicator) {
         scrollIndicator.classList.remove('hidden');
+        startBounceTimer();
       }
     }
   }
