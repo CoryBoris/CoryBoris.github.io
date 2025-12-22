@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>About Me - Cory Boris</title>
+  <!-- Preload all images so they're ready before display -->
+  <link rel="preload" href="assets/main_logo.webp" as="image">
+  <link rel="preload" href="assets/Cory_Iceland.webp" as="image">
+  <link rel="preload" href="assets/Cory_Coffee.webp" as="image">
+  <link rel="preload" href="assets/Cory_Victoria.webp" as="image">
+  <!-- Preload CV -->
+  <link rel="preload" href="assets/Cory Boris Curriculum Vitae.pdf" as="fetch" crossorigin>
+  <!-- Google Fonts - Roboto -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="about.css">
+</head>
+<body>
+  <!-- Hamburger Menu Button -->
+  <button class="hamburger-btn" id="hamburger-btn">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
+
+  <!-- Menu Overlay -->
+  <div class="menu-overlay" id="menu-overlay">
+    <div class="menu-content" id="menu-content">
+      <nav class="menu-nav" id="menu-nav">
+        <a href="#" id="cv-trigger">Curriculum Vitae</a>
+        <a href="index.html" class="go-home">Back to Main</a>
+        <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <a href="#" id="email-trigger">Email</a>
+      </nav>
+
+      <!-- Email View -->
+      <div class="email-view" id="email-view">
+        <button class="menu-back-btn" id="email-back">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back
+        </button>
+        <a href="mailto:CoryWBoris@gmail.com" class="email-link">CoryWBoris@gmail.com</a>
+        <button class="copy-btn" id="copy-email">Copy Address</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CV Overlay -->
+  <div class="cv-overlay" id="cv-overlay">
+    <div class="cv-overlay-content">
+      <div class="cv-overlay-header">
+        <button class="cv-overlay-back" id="cv-back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+        </button>
+        <button class="cv-overlay-download" id="cv-download">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download
+        </button>
+      </div>
+      <div class="cv-pdf-container">
+        <object data="assets/Cory Boris Curriculum Vitae.pdf#view=FitH&page=1" type="application/pdf" class="cv-pdf-object">
+          <iframe src="assets/Cory Boris Curriculum Vitae.pdf#view=FitH&page=1" class="cv-pdf-iframe"></iframe>
+        </object>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="about-container" id="about-container">
+
+    <!-- Hero Section: Musical Background -->
+    <section class="about-section hero-section" data-section="0">
+      <div class="header-title">
+        <h1>About Me</h1>
+      </div>
+      <div class="section-inner hero-inner">
+        <div class="hero-photo-container">
+          <img src="assets/main_logo.webp" alt="Cory Boris" class="hero-photo">
+        </div>
+        <div class="hero-text-box">
+          <h1 class="hero-title">I was raised with music as far back as I can remember.</h1>
+          <p class="hero-subtitle">I'm incredibly grateful to have had parents who encouraged my musical development. Music has opened doors for me and given me a way to outlet my creative energy.</p>
+        </div>
+      </div>
+      <div class="scroll-indicator" id="scroll-indicator">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+        <span>Scroll</span>
+      </div>
+    </section>
+
+    <!-- Section 1: Cruise Ship & Travel -->
+    <section class="about-section content-section" data-section="1">
+      <div class="section-inner">
+        <div class="content-block text-left">
+          <div class="text-content">
+            <h2>Seeing the World</h2>
+            <p>I worked on a cruise ship for several years, getting to visit unique and cherished places around the globe. That's Iceland you see in this photo.</p>
+            <p>Those years of travel shaped my perspective and fueled my curiosity for new experiences. It definitely has made me grateful to be home for sure.</p>
+          </div>
+          <div class="photo-content">
+            <img src="assets/Cory_Iceland.webp" alt="Cory in Iceland" class="section-photo">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 2: Music Production in NYC -->
+    <section class="about-section content-section" data-section="2">
+      <div class="section-inner">
+        <div class="content-block text-right">
+          <div class="photo-content">
+            <img src="assets/Cory_Coffee.webp" alt="Cory with Coffee" class="section-photo">
+          </div>
+          <div class="text-content">
+            <h2>Living in NYC</h2>
+            <p>These days I produce and play music in New York City when I'm not programming. I love the intersection of code and music, and some of my music programming projects are on my github.</p>
+            <p>The energy here is unlike any place I have been to. Whether I'm in my studio, performing live, or coding, the city gives me life.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Section 3: Outdoors & Inspiration -->
+    <section class="about-section content-section" data-section="3">
+      <div class="section-inner">
+        <div class="content-block text-left">
+          <div class="text-content">
+            <h2>Bumping into Inspiration</h2>
+            <p>I enjoy a healthy dose of the outdoors. Some of my best ideas come from simply going for a hike or spending time in Washington Square Park.</p>
+            <p>Hope you enjoy checking out the rest of my site, and I look forward to hearing from you!</p>
+          </div>
+          <div class="photo-content">
+            <img src="assets/Cory_Victoria.webp" alt="Cory Outdoors" class="section-photo">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Final Section: Back to Main -->
+    <section class="about-section final-section" data-section="4">
+      <div class="section-inner">
+        <a href="index.html" class="back-to-main">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          Back to Main
+        </a>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- Section Dots Navigation -->
+  <div class="section-dots" id="section-dots">
+    <div class="section-dot active" data-section="0"></div>
+    <div class="section-dot" data-section="1"></div>
+    <div class="section-dot" data-section="2"></div>
+    <div class="section-dot" data-section="3"></div>
+    <div class="section-dot" data-section="4"></div>
+  </div>
+
+  <script src="about.js"></script>
+</body>
+</html>
