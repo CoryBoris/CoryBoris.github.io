@@ -10,8 +10,7 @@
     'assets/Cory_Victoria.webp'
   ];
 
-  // Hide page until images loaded
-  document.body.style.opacity = '0';
+  // Body starts hidden via CSS - JS reveals after images load
 
   let loadedCount = 0;
   const totalImages = imagesToPreload.length;

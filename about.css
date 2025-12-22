@@ -10,6 +10,11 @@ html, body {
   background: #6d3838; /* Matches section 0 start */
 }
 
+/* Hide content until images are loaded - JS will reveal */
+body {
+  opacity: 0;
+}
+
 /* Prevent scroll while menu is open */
 body.menu-open {
   overflow: hidden !important;
@@ -129,17 +134,9 @@ body.menu-open {
   border-radius: 15px;
 }
 
-.hero-text-box {
-  background: rgba(255, 255, 255, 0.03);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 20px;
-  padding: 2.5rem 3rem;
+.hero-section .text-content {
   max-width: 580px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  text-align: left;
 }
 
 .hero-title {
@@ -151,15 +148,6 @@ body.menu-open {
   line-height: 1.35;
   letter-spacing: -0.02em;
   text-shadow: 0 1px 8px rgba(253, 246, 227, 0.15);
-}
-
-.hero-subtitle {
-  font-family: 'Roboto', sans-serif;
-  font-size: 1.2rem;
-  font-weight: 400;
-  line-height: 1.7;
-  color: rgba(253, 246, 227, 0.85);
-  text-shadow: 0 1px 6px rgba(253, 246, 227, 0.1);
 }
 
 /* Scroll Indicator */
