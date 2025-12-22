@@ -66,6 +66,10 @@ const App = {
     const onVisibilityChange = () => {
       if (!document.hidden && hasStarted) {
         forceSettleToStableState();
+        // Restore scroll lock if an overlay was open when we left
+        if (isScrollLocked.value) {
+          lockBodyScroll();
+        }
       }
     };
 
@@ -74,6 +78,10 @@ const App = {
       // Only force-settle on BFCache restores.
       if (e && e.persisted) {
         forceSettleToStableState();
+        // Restore scroll lock if an overlay was open when we left
+        if (isScrollLocked.value) {
+          lockBodyScroll();
+        }
       }
     };
 

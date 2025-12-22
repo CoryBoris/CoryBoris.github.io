@@ -45,7 +45,13 @@ const App = {
       const videoRev = videoReverseRef.value;
 
       // Ensure we are not stuck mid-transition (iOS/Chrome throttles RAF when backgrounded)
-      isScrollLocked.value = false;
+      // BUT preserve scroll lock if an overlay is open (menu, CV, or project overlay)
+      const overlayOpen = menuOpen.value || cvOverlayOpen.value || projectOverlay.value;
+      if (!overlayOpen) {
+        isScrollLocked.value = false;
+      } else {
+        console.log('Mobile: forceSettleToStableState - preserving scroll lock (overlay open)');
+      }
       exitingSection.value = null;
       showContent.value = true;
       videoSwitchReady.value = true;
@@ -76,13 +82,29 @@ const App = {
     };
 
     const onVisibilityChange = () => {
+      console.log('Mobile: visibilitychange fired, hidden:', document.hidden, 'isScrollLocked:', isScrollLocked.value);
       if (!document.hidden) {
+        console.log('Mobile: Page became visible, current body.overflow:', document.body.style.overflow);
         forceSettleToStableState();
+        // Restore scroll lock if an overlay was open when we left
+        if (isScrollLocked.value) {
+          console.log('Mobile: Restoring scroll lock (isScrollLocked was true)');
+          lockBodyScroll();
+        }
+        console.log('Mobile: After restore, body.overflow:', document.body.style.overflow);
       }
     };
 
-    const onPageShow = () => {
+    const onPageShow = (e) => {
+      console.log('Mobile: pageshow fired, persisted:', e?.persisted, 'isScrollLocked:', isScrollLocked.value);
+      console.log('Mobile: Current body.overflow:', document.body.style.overflow);
       forceSettleToStableState();
+      // Restore scroll lock if an overlay was open when we left
+      if (isScrollLocked.value) {
+        console.log('Mobile: Restoring scroll lock on pageshow (isScrollLocked was true)');
+        lockBodyScroll();
+      }
+      console.log('Mobile: After pageshow restore, body.overflow:', document.body.style.overflow);
     };
 
     // Gradient section is now controlled via data-section attribute on .video-container
@@ -756,10 +778,12 @@ const App = {
     };
 
     const lockBodyScroll = () => {
+      console.log('Mobile: lockBodyScroll called, setting overflow=hidden');
       document.body.style.overflow = 'hidden';
     };
 
     const unlockBodyScroll = () => {
+      console.log('Mobile: unlockBodyScroll called, clearing overflow');
       document.body.style.overflow = '';
     };
 
@@ -777,6 +801,7 @@ const App = {
           copyButtonText.value = 'Copy Address';
           unlockBodyScroll();
           isScrollLocked.value = false;
+          console.log('Mobile: isScrollLocked set to false (CV closed)');
         }, 300);
         return;
       }
@@ -799,11 +824,14 @@ const App = {
           // Unlock scroll when fully exiting to body
           unlockBodyScroll();
           isScrollLocked.value = false;
+          console.log('Mobile: isScrollLocked set to false (menu closed)');
         }, closeDuration);
       } else {
         menuOpen.value = true;
+        console.log('Mobile: Opening menu, applying scroll lock');
         lockBodyScroll();
         isScrollLocked.value = true;
+        console.log('Mobile: isScrollLocked set to true');
         pushOverlayState('menu');
       }
     };
@@ -947,6 +975,7 @@ const App = {
       }
 
       isScrollLocked.value = true;
+      console.log('Mobile: Opening project overlay, isScrollLocked set to true');
       projectOverlay.value = project;
       overlayState.value = 'opening';
       pushOverlayState('project');
@@ -995,6 +1024,7 @@ const App = {
       projectOverlay.value = null;
       overlayState.value = 'closed';
       isScrollLocked.value = false;
+      console.log('Mobile: Project overlay closed, isScrollLocked set to false');
     };
 
     const onProjectDetailAnimationEnd = (event) => {
@@ -1034,6 +1064,7 @@ const App = {
           projectOverlay.value = null;
           overlayState.value = 'closed';
           isScrollLocked.value = false;
+          console.log('Mobile: Project overlay closed (fallback), isScrollLocked set to false');
         }, 950);
       };
 
