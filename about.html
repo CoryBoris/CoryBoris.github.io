@@ -16,6 +16,13 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="about.css">
+  <script>
+    // Detect touch BEFORE loading CSS - matches main site pattern
+    var isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+    if (isTouchDevice) {
+      document.write('<link rel="stylesheet" href="about-mobile.css">');
+    }
+  </script>
 </head>
 <body>
   <!-- Hamburger Menu Button -->
