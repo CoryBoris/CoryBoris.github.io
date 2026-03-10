@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Cory Boris</title>
   <link rel="preload" href="assets/main_logo.webp" as="image" fetchpriority="high">
   <link rel="preload" href="assets/CorySignatureMain.gif" as="image">
@@ -237,6 +237,24 @@
         width: 280px;
         height: 85px;
         filter: url(#signature-thickener);
+      }
+    }
+    /* Landscape: shrink splash to fit short viewport */
+    @media (orientation: landscape) and (max-height: 500px) {
+      .splash-shimmer-wrapper {
+        gap: 10px;
+      }
+      .splash-logo-container {
+        width: 160px;
+        height: 160px;
+      }
+      .splash-logo {
+        width: 160px;
+        height: 160px;
+      }
+      .splash-signature {
+        width: 180px;
+        height: 55px;
       }
     }
   </style>

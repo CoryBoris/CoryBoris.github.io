@@ -107,6 +107,23 @@ const App = {
       console.log('Mobile: After pageshow restore, body.overflow:', document.body.style.overflow);
     };
 
+    // Force viewport reset on orientation change - iOS Safari can zoom/resize incorrectly
+    const onOrientationChange = () => {
+      // Scroll to origin to prevent stuck scroll offset
+      window.scrollTo(0, 0);
+      // Force layout recalculation with explicit height, then let CSS take over
+      const sc = document.querySelector('.scroll-container');
+      if (sc) {
+        sc.style.height = window.innerHeight + 'px';
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            sc.style.height = '';
+          });
+        });
+      }
+      forceSettleToStableState();
+    };
+
     // Gradient section is now controlled via data-section attribute on .video-container
     // CSS handles the smooth color interpolation via @property
 
@@ -609,6 +626,7 @@ const App = {
       // On resume, force-settle back to a stable state so the page is interactive.
       document.addEventListener('visibilitychange', onVisibilityChange);
       window.addEventListener('pageshow', onPageShow);
+      window.addEventListener('orientationchange', onOrientationChange);
 
       // Add wheel listener with passive: false to allow preventDefault
       window.addEventListener('wheel', handleWheel, { passive: false });
@@ -745,6 +763,7 @@ const App = {
       window.removeEventListener('popstate', handlePopState);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('orientationchange', onOrientationChange);
     });
 
     const menuOpen = ref(false);
