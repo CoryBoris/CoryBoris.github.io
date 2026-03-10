@@ -931,7 +931,7 @@ const App = {
 
     const copyEmail = () => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText('CoryWBoris@gmail.com').then(() => {
+        navigator.clipboard.writeText('CoryBoris@CoryBoris.com').then(() => {
           copyButtonText.value = 'Copied!';
           setTimeout(() => {
             copyButtonText.value = 'Copy Address';
@@ -942,7 +942,7 @@ const App = {
       } else {
         // Fallback for non-secure contexts
         const textArea = document.createElement("textarea");
-        textArea.value = 'CoryWBoris@gmail.com';
+        textArea.value = 'CoryBoris@CoryBoris.com';
         textArea.style.position = 'fixed';
         textArea.style.left = '-9999px';
         document.body.appendChild(textArea);
@@ -1229,7 +1229,7 @@ const App = {
                </svg>
                Back
              </button>
-             <a href="mailto:CoryWBoris@gmail.com" class="email-link">CoryWBoris@gmail.com</a>
+             <a href="mailto:CoryBoris@CoryBoris.com" class="email-link">CoryBoris@CoryBoris.com</a>
              <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
           </div>
 
