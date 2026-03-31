@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script>
+      (function () {
+        var path = window.location.pathname.toLowerCase().replace(/\/+$/, '');
+        var redirects = {
+          '/typleton': 'https://coryboris.gumroad.com/l/Typleton'
+        };
+        var dest = redirects[path];
+        if (dest) {
+          window.location.replace(dest);
+        } else {
+          window.location.replace('/');
+        }
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>
