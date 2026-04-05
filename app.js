@@ -1,5 +1,12 @@
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
+// Clean up stale service worker from previous approach
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(r) { r.unregister(); });
+  });
+}
+
 const App = {
   setup() {
     const videoForwardRef = ref(null);
@@ -1017,8 +1024,7 @@ const App = {
           </div>
           <div class="cv-pdf-container" v-if="cvPdfReady">
             <iframe
-              :src="cvPdfUrl + '#toolbar=0&navpanes=0&scrollbar=1'"
-              type="application/pdf"
+              src="cv-content.html"
               class="cv-pdf-iframe"
             ></iframe>
           </div>

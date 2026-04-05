@@ -1296,12 +1296,11 @@ body:has(.project-detail-overlay.open) .scroll-indicator {
   overflow: auto;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .cv-pdf-iframe,
 .cv-pdf-object {
-  /* Lock to letter size aspect ratio (8.5:11 = 0.773) */
   width: 100%;
   height: auto;
   aspect-ratio: 8.5 / 11;

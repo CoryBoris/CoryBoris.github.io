@@ -790,8 +790,8 @@ body:has(.cv-overlay.active) .scroll-container {
 }
 
 .cv-overlay-content {
-  width: 90%;
-  max-width: 700px;
+  width: 95%;
+  max-width: calc(8.5in + 16px);
   height: 90vh;
   max-height: calc(100vh - 40px);
   display: flex;
@@ -886,7 +886,8 @@ body:has(.cv-overlay.active) .scroll-container {
   flex: 1;
   background: rgba(30, 30, 30, 0.95);
   border-radius: 0 0 12px 12px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .cv-pdf-iframe {

@@ -1293,16 +1293,10 @@ const App = {
             </button>
           </div>
           <div class="cv-pdf-container" v-if="cvPdfReady">
-            <object
-              :data="cvPdfUrl + '#view=FitH&page=1'"
-              type="application/pdf"
-              class="cv-pdf-object"
-            >
-              <iframe
-                :src="cvPdfUrl + '#view=FitH&page=1'"
-                class="cv-pdf-iframe"
-              ></iframe>
-            </object>
+            <iframe
+              src="cv-content.html"
+              class="cv-pdf-iframe"
+            ></iframe>
           </div>
           <div class="cv-loading" v-else>
             <div class="cv-loading-spinner"></div>
