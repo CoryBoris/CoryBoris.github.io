@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { background: white; overflow-x: hidden; overflow-y: auto; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html { background: white; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body {
     width: 8.5000in;
-    padding: 0.2660in 0.40in 0.2660in 0.40in;
+    padding: 0.2660in 0.4403in 0.2660in 0.4403in;
     background: white;
     font-family: 'Times New Roman', Times, serif;
     font-size: 10pt;
@@ -81,8 +81,8 @@
 <script>
 (function() {
   var PAGE_W = 8.5 * 96;
-  var MARGIN_L = 0.40 * 96; // left margin in px
-  var MARGIN_R = 0.40 * 96; // right margin in px
+  var MARGIN_L = 0.44027777777777777 * 96; // left margin in px
+  var MARGIN_R = 0.44027777777777777 * 96; // right margin in px
   var PAD = 28; // padding on each side (px) to avoid edge-to-edge
   var CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R + PAD * 2;
   var origPadTop = parseFloat(getComputedStyle(document.body).paddingTop) || 0;
@@ -105,17 +105,17 @@
     document.documentElement.style.overflow = '';
 
     var vw = measureWidth();
+    var viewH = window.innerHeight;
+
     if (vw > 0 && vw < PAGE_W) {
-      // Scale so content area (minus margins) fits viewport width
+      // Mobile: scale content area to fit viewport width
       var scale = vw / CONTENT_W;
-      // Shift left to crop left margin, but keep PAD visible
       document.body.style.marginLeft = (-(MARGIN_L - PAD) * scale) + 'px';
       document.body.style.transformOrigin = 'top left';
       document.body.style.transform = 'scale(' + scale + ')';
 
-      // Vertically center: measure content, center in iframe
+      // Vertically center
       var scaledH = document.body.scrollHeight * scale;
-      var viewH = window.innerHeight;
       if (viewH > scaledH) {
         var extra = (viewH - scaledH) / scale / 2;
         document.body.style.paddingTop = (origPadTop + extra) + 'px';
@@ -124,6 +124,7 @@
       document.documentElement.style.height = Math.max(scaledH, viewH) + 'px';
       document.documentElement.style.overflow = 'hidden';
     }
+    // Desktop: CSS handles overflow natively (overflow-y: auto)
   }
 
   if (document.readyState === 'complete') fit();

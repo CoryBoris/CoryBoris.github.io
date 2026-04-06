@@ -886,11 +886,11 @@ body:has(.cv-overlay.active) .scroll-container {
   flex: 1;
   background: rgba(30, 30, 30, 0.95);
   border-radius: 0 0 12px 12px;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .cv-pdf-iframe {
+  display: block;
   width: 100%;
   height: 100%;
   border: none;
