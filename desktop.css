@@ -861,6 +861,11 @@ body:has(.cv-overlay.active) .scroll-container {
   transform: scale(1.1);
 }
 
+.cv-download-group {
+  display: flex;
+  gap: 8px;
+}
+
 .cv-overlay-download {
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.3);
@@ -886,7 +891,7 @@ body:has(.cv-overlay.active) .scroll-container {
   flex: 1;
   background: rgba(30, 30, 30, 0.95);
   border-radius: 0 0 12px 12px;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .cv-pdf-iframe {

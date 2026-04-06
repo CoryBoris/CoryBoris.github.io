@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { background: white; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+  html { background: white; overflow-x: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
   body {
     width: 8.5000in;
     padding: 0.2660in 0.4403in 0.2660in 0.4403in;
@@ -96,19 +96,20 @@
     return w;
   }
 
+  var isMobile = false;
   function fit() {
-    // Reset
-    document.body.style.transform = '';
-    document.body.style.marginLeft = '';
-    document.body.style.paddingTop = origPadTop + 'px';
-    document.documentElement.style.height = '';
-    document.documentElement.style.overflow = '';
-
     var vw = measureWidth();
     var viewH = window.innerHeight;
+    var nowMobile = (vw > 0 && vw < PAGE_W - 20);
 
-    if (vw > 0 && vw < PAGE_W) {
-      // Mobile: scale content area to fit viewport width
+    if (nowMobile) {
+      // Mobile: reset and scale
+      document.body.style.transform = '';
+      document.body.style.marginLeft = '';
+      document.body.style.paddingTop = origPadTop + 'px';
+      document.documentElement.style.height = '';
+      document.documentElement.style.overflow = 'hidden';
+
       var scale = vw / CONTENT_W;
       document.body.style.marginLeft = (-(MARGIN_L - PAD) * scale) + 'px';
       document.body.style.transformOrigin = 'top left';
@@ -122,9 +123,17 @@
         scaledH = document.body.scrollHeight * scale;
       }
       document.documentElement.style.height = Math.max(scaledH, viewH) + 'px';
-      document.documentElement.style.overflow = 'hidden';
+      isMobile = true;
+    } else if (isMobile) {
+      // Switched from mobile to desktop — clean up mobile styles
+      document.body.style.transform = '';
+      document.body.style.marginLeft = '';
+      document.body.style.paddingTop = origPadTop + 'px';
+      document.documentElement.style.height = '';
+      document.documentElement.style.overflow = '';
+      isMobile = false;
     }
-    // Desktop: CSS handles overflow natively (overflow-y: auto)
+    // Desktop: never touch overflow — let browser handle scrolling natively
   }
 
   if (document.readyState === 'complete') fit();

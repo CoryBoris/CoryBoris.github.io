@@ -948,6 +948,15 @@ const App = {
       document.body.removeChild(link);
     };
 
+    const downloadDocx = () => {
+      const link = document.createElement('a');
+      link.href = 'assets/Cory Boris Curriculum Vitae.docx';
+      link.download = 'Cory Boris Curriculum Vitae.docx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    };
+
     const copyEmail = () => {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText('CoryBoris@CoryBoris.com').then(() => {
@@ -1160,6 +1169,7 @@ const App = {
       closeCVOverlay,
       closeAllOverlays,
       downloadCV,
+      downloadDocx,
       cvView,
       cvOverlayOpen,
       cvPdfReady,
@@ -1283,14 +1293,24 @@ const App = {
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </button>
-            <button class="cv-overlay-download" @click="downloadCV">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                <polyline points="7 10 12 15 17 10"/>
-                <line x1="12" y1="15" x2="12" y2="3"/>
-              </svg>
-              Download
-            </button>
+            <div class="cv-download-group">
+              <button class="cv-overlay-download" @click="downloadCV">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                PDF
+              </button>
+              <button class="cv-overlay-download" @click="downloadDocx">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                  <polyline points="7 10 12 15 17 10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                .docx
+              </button>
+            </div>
           </div>
           <div class="cv-pdf-container" v-if="cvPdfReady">
             <iframe
