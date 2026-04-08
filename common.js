@@ -8,7 +8,7 @@ const CoryPortfolio = {
     // Initialize the correct app script based on device
     initApp: function () {
         const script = document.createElement('script');
-        script.src = this.isMobileDeviceCheck() ? 'mobile-app.js' : 'app.js';
+        script.src = (this.isMobileDeviceCheck() ? 'mobile-app.js' : 'app.js') + '?v=' + (window.CACHE_V || Date.now());
         document.body.appendChild(script);
     }
 };
