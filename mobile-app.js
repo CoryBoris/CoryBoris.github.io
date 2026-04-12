@@ -547,6 +547,7 @@ const App = {
         return; // Block scroll if tap-to-start is active
       }
       if (isScrollLocked.value) return; // Allow default scroll (for overlay), skip custom nav
+      if (menuOpen.value || cvOverlayOpen.value || projectOverlay.value) return; // Block nav when any overlay is open
 
       // Only reset bounce timer when actually scrolling (not blocked)
       resetBounceTimer();
@@ -574,6 +575,7 @@ const App = {
     const handleTouchEnd = (e) => {
       if (needsTapToStart.value) { debugToast('TOUCH blocked: needsTapToStart'); return; }
       if (isScrollLocked.value) { debugToast('TOUCH blocked: isScrollLocked=true'); return; }
+      if (menuOpen.value || cvOverlayOpen.value || projectOverlay.value) return; // Block nav when any overlay is open
 
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
@@ -849,7 +851,7 @@ const App = {
     const emailView = ref(false);
     const cvView = ref(false);
     const cvOverlayOpen = ref(false);
-    const cvPdfReady = ref(false);
+    const cvPdfReady = ref(true);
     const cvPdfUrl = ref('');
     const copyButtonText = ref('Copy Address');
     const isBouncing = ref(true);
@@ -949,24 +951,6 @@ const App = {
       cvView.value = false;
     };
 
-    // Initialize CV URL from splash preload on mount
-    const initCVFromPreload = () => {
-      if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
-        cvPdfUrl.value = window.cvPdfBlobUrl;
-        cvPdfReady.value = true;
-      } else {
-        // Check periodically until loaded
-        const checkInterval = setInterval(() => {
-          if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
-            cvPdfUrl.value = window.cvPdfBlobUrl;
-            cvPdfReady.value = true;
-            clearInterval(checkInterval);
-          }
-        }, 100);
-      }
-    };
-    // Call immediately to start tracking preload
-    initCVFromPreload();
 
     const openCVOverlay = () => {
       cvOverlayOpen.value = true;

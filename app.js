@@ -546,7 +546,7 @@ const App = {
     const emailView = ref(false);
     const cvView = ref(false);
     const cvOverlayOpen = ref(false);
-    const cvPdfReady = ref(false);
+    const cvPdfReady = ref(true);
     const cvPdfUrl = ref('');
     const copyButtonText = ref('Copy Address');
     const isBouncing = ref(true);
@@ -622,24 +622,6 @@ const App = {
       cvView.value = false;
     };
 
-    // Initialize CV URL from splash preload on mount
-    const initCVFromPreload = () => {
-      if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
-        cvPdfUrl.value = window.cvPdfBlobUrl;
-        cvPdfReady.value = true;
-      } else {
-        // Check periodically until loaded
-        const checkInterval = setInterval(() => {
-          if (window.cvPdfLoaded && window.cvPdfBlobUrl) {
-            cvPdfUrl.value = window.cvPdfBlobUrl;
-            cvPdfReady.value = true;
-            clearInterval(checkInterval);
-          }
-        }, 100);
-      }
-    };
-    // Call immediately to start tracking preload
-    initCVFromPreload();
 
     const openCVOverlay = () => {
       cvOverlayOpen.value = true;
