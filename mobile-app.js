@@ -3,22 +3,8 @@
 
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
-// DEBUG: On-screen toast for mobile (no DevTools needed)
-const _debugToasts = [];
 function debugToast(msg) {
   console.log('[DBG] ' + msg);
-  let container = document.getElementById('debug-toast-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'debug-toast-container';
-    container.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;z-index:99999;pointer-events:none;display:flex;flex-direction:column;gap:4px;';
-    document.body.appendChild(container);
-  }
-  const el = document.createElement('div');
-  el.style.cssText = 'background:rgba(0,0,0,0.85);color:#0f0;font:11px/1.3 monospace;padding:6px 10px;border-radius:6px;word-break:break-all;';
-  el.textContent = new Date().toLocaleTimeString() + ' ' + msg;
-  container.appendChild(el);
-  setTimeout(() => { el.remove(); }, 8000);
 }
 
 const App = {
