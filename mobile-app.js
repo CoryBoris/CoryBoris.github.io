@@ -33,6 +33,8 @@ const App = {
     // Track CSS transition listener to remove if new animation starts
     let currentTransitionListener = null;
     let currentTransitionElement = null;
+    // Generation counter: incremented on every forced settle so stale RAF callbacks are ignored
+    let settleGeneration = 0;
 
     // Convert frame number to timestamp
     // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
@@ -43,6 +45,19 @@ const App = {
 
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
+
+      // Invalidate any in-flight RAF animation so its callback becomes a no-op
+      settleGeneration++;
+      if (currentAnimationId) {
+        cancelAnimationFrame(currentAnimationId);
+        currentAnimationId = null;
+      }
+      // Remove orphaned transitionend listener that would never fire (or re-lock scroll)
+      if (currentTransitionListener && currentTransitionElement) {
+        currentTransitionElement.removeEventListener('transitionend', currentTransitionListener);
+        currentTransitionListener = null;
+        currentTransitionElement = null;
+      }
 
       // Ensure we are not stuck mid-transition (iOS/Chrome throttles RAF when backgrounded)
       // BUT preserve scroll lock if an overlay is open (menu, CV, or project overlay)
@@ -236,6 +251,9 @@ const App = {
           currentTransitionElement = null;
         }
 
+        // Capture generation so this animation becomes a no-op if a settle happens mid-flight
+        const myGeneration = settleGeneration;
+
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
         const duration = actualDuration * 1000; // in ms
         const animStartTime = performance.now();
@@ -254,6 +272,9 @@ const App = {
         }, 100);
 
         const animateFrame = () => {
+          // Bail if a forced settle invalidated this animation
+          if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
+
           const elapsed = performance.now() - animStartTime;
           const progress = Math.min(elapsed / duration, 1);
 
@@ -376,6 +397,9 @@ const App = {
           currentTransitionElement = null;
         }
 
+        // Capture generation so this animation becomes a no-op if a settle happens mid-flight
+        const myGeneration = settleGeneration;
+
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
         const duration = actualDuration * 1000; // in ms
         const animStartTime = performance.now();
@@ -391,6 +415,9 @@ const App = {
         }, 100);
 
         const animateFrame = () => {
+          // Bail if a forced settle invalidated this animation
+          if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
+
           const elapsed = performance.now() - animStartTime;
           const progress = Math.min(elapsed / duration, 1);
 
@@ -627,6 +654,7 @@ const App = {
       document.addEventListener('visibilitychange', onVisibilityChange);
       window.addEventListener('pageshow', onPageShow);
       window.addEventListener('orientationchange', onOrientationChange);
+      window.addEventListener('focus', onVisibilityChange);
 
       // Add wheel listener with passive: false to allow preventDefault
       window.addEventListener('wheel', handleWheel, { passive: false });
@@ -764,6 +792,7 @@ const App = {
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('orientationchange', onOrientationChange);
+      window.removeEventListener('focus', onVisibilityChange);
     });
 
     const menuOpen = ref(false);

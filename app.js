@@ -425,6 +425,7 @@ const App = {
 
       document.addEventListener('visibilitychange', onVisibilityChange);
       window.addEventListener('pageshow', onPageShow);
+      window.addEventListener('focus', onVisibilityChange);
 
       // Add scroll listeners - isScrollLocked flag controls whether they act
       window.addEventListener('wheel', handleWheel, { passive: false });
@@ -538,6 +539,7 @@ const App = {
       window.removeEventListener('load', onWindowLoad);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('focus', onVisibilityChange);
     });
 
     const menuOpen = ref(false);
