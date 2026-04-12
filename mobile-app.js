@@ -3,6 +3,24 @@
 
 const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
 
+// DEBUG: On-screen toast for mobile (no DevTools needed)
+const _debugToasts = [];
+function debugToast(msg) {
+  console.log('[DBG] ' + msg);
+  let container = document.getElementById('debug-toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'debug-toast-container';
+    container.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;z-index:99999;pointer-events:none;display:flex;flex-direction:column;gap:4px;';
+    document.body.appendChild(container);
+  }
+  const el = document.createElement('div');
+  el.style.cssText = 'background:rgba(0,0,0,0.85);color:#0f0;font:11px/1.3 monospace;padding:6px 10px;border-radius:6px;word-break:break-all;';
+  el.textContent = new Date().toLocaleTimeString() + ' ' + msg;
+  container.appendChild(el);
+  setTimeout(() => { el.remove(); }, 8000);
+}
+
 const App = {
   setup() {
     const videoForwardRef = ref(null);
@@ -91,35 +109,56 @@ const App = {
         }
       }
 
+      // Wake suspended video decoders (mobile browsers suspend when backgrounded)
+      // A play→pause cycle forces the decoder to reactivate and render the current frame
+      const wakeVideo = (video) => {
+        if (!video) return;
+        try {
+          const p = video.play();
+          if (p && p.then) {
+            p.then(() => {
+              video.pause();
+              debugToast(`VIDEO WOKEN: readyState=${video.readyState}`);
+            }).catch(() => {
+              debugToast(`VIDEO WAKE FAILED (play rejected)`);
+            });
+          } else {
+            video.pause();
+          }
+        } catch (_) {
+          debugToast(`VIDEO WAKE FAILED (exception)`);
+        }
+      };
+      wakeVideo(videoFwd);
+      wakeVideo(videoRev);
+
       // Mark both videos as "ready" again for any CSS that depends on these flags
       forwardVideoReady.value = true;
       reverseVideoReady.value = true;
     };
 
-    const onVisibilityChange = () => {
-      console.log('Mobile: visibilitychange fired, hidden:', document.hidden, 'isScrollLocked:', isScrollLocked.value);
+    const onVisibilityChange = (e) => {
+      const source = e && e.type ? e.type : 'unknown';
+      debugToast(`EVENT: ${source} | hidden=${document.hidden} scrollLocked=${isScrollLocked.value} needsTap=${needsTapToStart.value}`);
       if (!document.hidden) {
-        console.log('Mobile: Page became visible, current body.overflow:', document.body.style.overflow);
+        const overlayState = `menu=${menuOpen.value} cv=${cvOverlayOpen.value} proj=${!!projectOverlay.value}`;
+        debugToast(`RECONNECT via ${source} | overlays: ${overlayState} | body.overflow=${document.body.style.overflow}`);
         forceSettleToStableState();
         // Restore scroll lock if an overlay was open when we left
         if (isScrollLocked.value) {
-          console.log('Mobile: Restoring scroll lock (isScrollLocked was true)');
           lockBodyScroll();
         }
-        console.log('Mobile: After restore, body.overflow:', document.body.style.overflow);
+        debugToast(`AFTER settle: scrollLocked=${isScrollLocked.value} body.overflow=${document.body.style.overflow}`);
       }
     };
 
     const onPageShow = (e) => {
-      console.log('Mobile: pageshow fired, persisted:', e?.persisted, 'isScrollLocked:', isScrollLocked.value);
-      console.log('Mobile: Current body.overflow:', document.body.style.overflow);
+      debugToast(`EVENT: pageshow | persisted=${e?.persisted} scrollLocked=${isScrollLocked.value}`);
       forceSettleToStableState();
-      // Restore scroll lock if an overlay was open when we left
       if (isScrollLocked.value) {
-        console.log('Mobile: Restoring scroll lock on pageshow (isScrollLocked was true)');
         lockBodyScroll();
       }
-      console.log('Mobile: After pageshow restore, body.overflow:', document.body.style.overflow);
+      debugToast(`AFTER pageshow settle: scrollLocked=${isScrollLocked.value} body.overflow=${document.body.style.overflow}`);
     };
 
     // Force viewport reset on orientation change - iOS Safari can zoom/resize incorrectly
@@ -255,63 +294,75 @@ const App = {
         const myGeneration = settleGeneration;
 
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
-        const duration = actualDuration * 1000; // in ms
-        const animStartTime = performance.now();
+        // Ensure decoder is awake before scrubbing (mobile suspends it when backgrounded)
+        const wakeAndScrub = () => {
+          const duration = actualDuration * 1000; // in ms
+          const animStartTime = performance.now();
 
-        // PRE-BUFFER reverse video while forward plays
-        setTimeout(() => {
-          const revEndFrame = sectionFramesReverse[targetSection][0];
-          reverseTargetTime = frameToTime(revEndFrame);
-          reverseVideoReady.value = false;
-          if (videoRev) {
-            videoRev.currentTime = reverseTargetTime;
-            videoRev.addEventListener('seeked', () => {
-              reverseVideoReady.value = true;
-            }, { once: true });
-          }
-        }, 100);
-
-        const animateFrame = () => {
-          // Bail if a forced settle invalidated this animation
-          if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
-
-          const elapsed = performance.now() - animStartTime;
-          const progress = Math.min(elapsed / duration, 1);
-
-          // Interpolate currentTime from startTime to endTime
-          const currentTime = startTime + (progress * (endTime - startTime));
-          videoFwd.currentTime = currentTime;
-
-          if (progress < 1) {
-            currentAnimationId = requestAnimationFrame(animateFrame);
-          } else {
-            // Animation complete - set final frame
-            currentAnimationId = null;
-            videoFwd.currentTime = endTime;
-            exitingSection.value = null;
-            showContent.value = true;
-            // Listen for actual CSS transitionend - no guessing
-            const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
-            if (sectionEl) {
-              const onTransitionEnd = (e) => {
-                // Only unlock on opacity transition (the main visibility transition)
-                if (e.propertyName === 'opacity') {
-                  sectionEl.removeEventListener('transitionend', onTransitionEnd);
-                  currentTransitionListener = null;
-                  currentTransitionElement = null;
-                  isScrollLocked.value = false;
-                }
-              };
-              currentTransitionListener = onTransitionEnd;
-              currentTransitionElement = sectionEl;
-              sectionEl.addEventListener('transitionend', onTransitionEnd);
-            } else {
-              // Fallback if element not found
-              isScrollLocked.value = false;
+          // PRE-BUFFER reverse video while forward plays
+          setTimeout(() => {
+            const revEndFrame = sectionFramesReverse[targetSection][0];
+            reverseTargetTime = frameToTime(revEndFrame);
+            reverseVideoReady.value = false;
+            if (videoRev) {
+              videoRev.currentTime = reverseTargetTime;
+              videoRev.addEventListener('seeked', () => {
+                reverseVideoReady.value = true;
+              }, { once: true });
             }
-          }
+          }, 100);
+
+          const animateFrame = () => {
+            // Bail if a forced settle invalidated this animation
+            if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
+
+            const elapsed = performance.now() - animStartTime;
+            const progress = Math.min(elapsed / duration, 1);
+
+            // Interpolate currentTime from startTime to endTime
+            const currentTime = startTime + (progress * (endTime - startTime));
+            videoFwd.currentTime = currentTime;
+
+            if (progress < 1) {
+              currentAnimationId = requestAnimationFrame(animateFrame);
+            } else {
+              // Animation complete - set final frame
+              currentAnimationId = null;
+              videoFwd.currentTime = endTime;
+              exitingSection.value = null;
+              showContent.value = true;
+              // Listen for actual CSS transitionend - no guessing
+              const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
+              if (sectionEl) {
+                const onTransitionEnd = (e) => {
+                  // Only unlock on opacity transition (the main visibility transition)
+                  if (e.propertyName === 'opacity') {
+                    sectionEl.removeEventListener('transitionend', onTransitionEnd);
+                    currentTransitionListener = null;
+                    currentTransitionElement = null;
+                    isScrollLocked.value = false;
+                  }
+                };
+                currentTransitionListener = onTransitionEnd;
+                currentTransitionElement = sectionEl;
+                sectionEl.addEventListener('transitionend', onTransitionEnd);
+              } else {
+                // Fallback if element not found
+                isScrollLocked.value = false;
+              }
+            }
+          };
+          currentAnimationId = requestAnimationFrame(animateFrame);
         };
-        currentAnimationId = requestAnimationFrame(animateFrame);
+        // Wake decoder then start scrubbing
+        const p = videoFwd.play();
+        if (p && p.then) {
+          p.then(() => { videoFwd.pause(); wakeAndScrub(); })
+           .catch(() => { wakeAndScrub(); }); // try anyway if play rejected
+        } else {
+          videoFwd.pause();
+          wakeAndScrub();
+        }
       };
 
       const onSeekReady = () => {
@@ -401,60 +452,72 @@ const App = {
         const myGeneration = settleGeneration;
 
         // FRAME-BY-FRAME SCRUBBING: Instead of play(), animate currentTime directly
-        const duration = actualDuration * 1000; // in ms
-        const animStartTime = performance.now();
+        // Ensure decoder is awake before scrubbing (mobile suspends it when backgrounded)
+        const wakeAndScrub = () => {
+          const duration = actualDuration * 1000; // in ms
+          const animStartTime = performance.now();
 
-        // Pre-buffer forward video for next transition
-        setTimeout(() => {
-            forwardVideoReady.value = false;
-            forwardTargetTime = targetEndTime;
-            videoFwd.currentTime = targetEndTime;
-            videoFwd.addEventListener('seeked', () => {
-              forwardVideoReady.value = true;
-            }, { once: true });
-        }, 100);
+          // Pre-buffer forward video for next transition
+          setTimeout(() => {
+              forwardVideoReady.value = false;
+              forwardTargetTime = targetEndTime;
+              videoFwd.currentTime = targetEndTime;
+              videoFwd.addEventListener('seeked', () => {
+                forwardVideoReady.value = true;
+              }, { once: true });
+          }, 100);
 
-        const animateFrame = () => {
-          // Bail if a forced settle invalidated this animation
-          if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
+          const animateFrame = () => {
+            // Bail if a forced settle invalidated this animation
+            if (myGeneration !== settleGeneration) { currentAnimationId = null; return; }
 
-          const elapsed = performance.now() - animStartTime;
-          const progress = Math.min(elapsed / duration, 1);
+            const elapsed = performance.now() - animStartTime;
+            const progress = Math.min(elapsed / duration, 1);
 
-          // Interpolate currentTime from revStartTime to revEndTime
-          const currentTime = revStartTime + (progress * (revEndTime - revStartTime));
-          videoRev.currentTime = currentTime;
+            // Interpolate currentTime from revStartTime to revEndTime
+            const currentTime = revStartTime + (progress * (revEndTime - revStartTime));
+            videoRev.currentTime = currentTime;
 
-          if (progress < 1) {
-            currentAnimationId = requestAnimationFrame(animateFrame);
-          } else {
-            // Animation complete - set final frame
-            currentAnimationId = null;
-            videoRev.currentTime = revEndTime;
-            exitingSection.value = null;
-            showContent.value = true;
-            // Listen for actual CSS transitionend - no guessing
-            const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
-            if (sectionEl) {
-              const onTransitionEnd = (e) => {
-                // Only unlock on opacity transition (the main visibility transition)
-                if (e.propertyName === 'opacity') {
-                  sectionEl.removeEventListener('transitionend', onTransitionEnd);
-                  currentTransitionListener = null;
-                  currentTransitionElement = null;
-                  isScrollLocked.value = false;
-                }
-              };
-              currentTransitionListener = onTransitionEnd;
-              currentTransitionElement = sectionEl;
-              sectionEl.addEventListener('transitionend', onTransitionEnd);
+            if (progress < 1) {
+              currentAnimationId = requestAnimationFrame(animateFrame);
             } else {
-              // Fallback if element not found
-              isScrollLocked.value = false;
+              // Animation complete - set final frame
+              currentAnimationId = null;
+              videoRev.currentTime = revEndTime;
+              exitingSection.value = null;
+              showContent.value = true;
+              // Listen for actual CSS transitionend - no guessing
+              const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
+              if (sectionEl) {
+                const onTransitionEnd = (e) => {
+                  // Only unlock on opacity transition (the main visibility transition)
+                  if (e.propertyName === 'opacity') {
+                    sectionEl.removeEventListener('transitionend', onTransitionEnd);
+                    currentTransitionListener = null;
+                    currentTransitionElement = null;
+                    isScrollLocked.value = false;
+                  }
+                };
+                currentTransitionListener = onTransitionEnd;
+                currentTransitionElement = sectionEl;
+                sectionEl.addEventListener('transitionend', onTransitionEnd);
+              } else {
+                // Fallback if element not found
+                isScrollLocked.value = false;
+              }
             }
-          }
+          };
+          currentAnimationId = requestAnimationFrame(animateFrame);
         };
-        currentAnimationId = requestAnimationFrame(animateFrame);
+        // Wake decoder then start scrubbing
+        const p = videoRev.play();
+        if (p && p.then) {
+          p.then(() => { videoRev.pause(); wakeAndScrub(); })
+           .catch(() => { wakeAndScrub(); }); // try anyway if play rejected
+        } else {
+          videoRev.pause();
+          wakeAndScrub();
+        }
       };
 
       const onSeekReady = () => {
@@ -523,8 +586,8 @@ const App = {
     };
 
     const handleTouchEnd = (e) => {
-      if (needsTapToStart.value) return; // Block swipe if tap-to-start is active
-      if (isScrollLocked.value) return;
+      if (needsTapToStart.value) { debugToast('TOUCH blocked: needsTapToStart'); return; }
+      if (isScrollLocked.value) { debugToast('TOUCH blocked: isScrollLocked=true'); return; }
 
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
