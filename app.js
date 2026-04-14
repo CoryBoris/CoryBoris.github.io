@@ -115,6 +115,14 @@ const App = {
       },
       {
         number: '03',
+        title: 'iDrawMap',
+        logo: 'assets/idrawmap_project.png',
+        link: 'idrawmap.html',
+        externalLink: 'https://www.idrawmap.com',
+        description: 'iDrawMap is a draw-to-search map app that lets you find locations strictly within any polygon you draw, giving you granular proximity search that typical radius-based tools can\'t. It also features three- and four-stop direction routing via Google Maps deep links, with full route details encoded into shareable URLs. Built on OpenStreetMap with Leaflet.js, the Overpass API, and the Gemini API on the backend. No account needed to use it.'
+      },
+      {
+        number: '04',
         title: 'Nadette',
         logo: 'assets/nadette_project.webp',
         link: 'nadette.html',
@@ -122,7 +130,7 @@ const App = {
         description: 'Nadette Ai is a virtual assistant powered by Google Gemini, and it can be called and spoken to with natural language and can execute specific tasks such as multiple emails and texts to different people, making calendar events on both google calendar and icalendar, and the ability to hang up after speaking with the assurance that your last spoken requests are captured, something OpenAi doesn\'t yet do in their call feature for their latest llms. Made with Python, Bash, and Html for the email formatting.'
       },
       {
-        number: '04',
+        number: '05',
         title: 'TrueAutoColor',
         logo: 'assets/TrueAutoColor_project.webp',
         link: 'trueautocolor.html',
@@ -135,20 +143,22 @@ const App = {
     // [startFrame, endFrame] - endFrame is the freeze frame
     const sectionFrames = {
       0: [0, 0],        // virtual section 0 for initial state (frame 0)
-      1: [0, 23],       // frames 0-24 (0-1s), freeze at frame 24
-      2: [23, 55],      // frames 24-55 (1-2.3s), freeze at frame 55
-      3: [55, 168],     // frames 55-168 (2.3-7s), freeze at frame 168
-      4: [168, 240]     // frames 168-240 (7-10s), freeze at frame 240
+      1: [0, 23],       // frames 0-23 (0-1s), freeze at frame 23
+      2: [23, 55],      // frames 23-55 (1-2.3s), freeze at frame 55
+      3: [55, 69],      // frames 55-69 (2.3-2.875s), freeze at frame 69
+      4: [69, 168],     // frames 69-168 (2.875-7s), freeze at frame 168
+      5: [168, 240]     // frames 168-240 (7-10s), freeze at frame 240
     };
 
     // Reverse video: frame N in forward = frame (totalFrames - N) in reverse
     // For frame-perfect alignment, reverse freeze frames must exactly match forward freeze frames
-    // Forward freezes at: 24, 55, 168, 240 → Reverse freezes at: 216, 185, 72, 0
+    // Forward freezes at: 23, 55, 69, 168, 240 → Reverse freezes at: 217, 185, 171, 72, 0
     const sectionFramesReverse = {
-      1: [totalFrames - 24, totalFrames],         // frames 216-240, freeze at 216 (matches fwd frame 24)
-      2: [totalFrames - 55, totalFrames - 24],    // frames 185-216, freeze at 185 (matches fwd frame 55)
-      3: [totalFrames - 168, totalFrames - 55],   // frames 72-185, freeze at 72 (matches fwd frame 168)
-      4: [totalFrames - 240, totalFrames - 168]   // frames 0-72, freeze at 0 (matches fwd frame 240)
+      1: [totalFrames - 24, totalFrames],         // frames 217-240, freeze at 217 (matches fwd frame 23)
+      2: [totalFrames - 56, totalFrames - 24],    // frames 185-217, freeze at 185 (matches fwd frame 55)
+      3: [totalFrames - 70, totalFrames - 56],    // frames 171-185, freeze at 171 (matches fwd frame 69)
+      4: [totalFrames - 169, totalFrames - 70],   // frames 72-171, freeze at 72 (matches fwd frame 168)
+      5: [totalFrames - 240, totalFrames - 169]   // frames 0-72, freeze at 0 (matches fwd frame 240)
     };
 
     // Play video forward (supports multi-section jumps)
@@ -354,7 +364,7 @@ const App = {
       // Only reset bounce timer when actually scrolling (not blocked)
       resetBounceTimer();
       const delta = e.deltaY;
-      if (delta > 20 && currentSection.value < 4) {
+      if (delta > 20 && currentSection.value < 5) {
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
@@ -375,7 +385,7 @@ const App = {
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
 
-      if (delta > 50 && currentSection.value < 4) {
+      if (delta > 50 && currentSection.value < 5) {
         resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value++;
@@ -1097,7 +1107,7 @@ const App = {
       <!-- Section dots navigation -->
       <div class="section-dots">
         <div
-          v-for="i in 4"
+          v-for="i in 5"
           :key="i"
           class="section-dot"
           :class="{ active: currentSection === i }"

@@ -30,10 +30,14 @@ html, body {
 }
 
 .project-page[data-section="3"] {
-  background: linear-gradient(135deg, #4a69bd 0%, #6a89cc 50%, #b8d4e3 100%);
+  background: linear-gradient(135deg, #324868 0%, #4095d8 50%, #90cfe9 100%);
 }
 
 .project-page[data-section="4"] {
+  background: linear-gradient(135deg, #4a69bd 0%, #6a89cc 50%, #b8d4e3 100%);
+}
+
+.project-page[data-section="5"] {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
 }
 

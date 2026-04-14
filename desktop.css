@@ -131,12 +131,18 @@ body:has(.cv-overlay.active) .scroll-container {
 }
 
 .video-container[data-section="3"] {
+  --gradient-color-1: #4a6488;
+  --gradient-color-2: #56a0e0;
+  --gradient-color-3: #a2d5ec;
+}
+
+.video-container[data-section="4"] {
   --gradient-color-1: #4a69bd;
   --gradient-color-2: #6a89cc;
   --gradient-color-3: #b8d4e3;
 }
 
-.video-container[data-section="4"] {
+.video-container[data-section="5"] {
   --gradient-color-1: #667eea;
   --gradient-color-2: #764ba2;
   --gradient-color-3: #f093fb;
@@ -243,23 +249,33 @@ body:has(.cv-overlay.active) .scroll-container {
   transform: translateX(-50%) scale(1);
 }
 
-/* Position 3: Lower right - closer to center */
+/* Position 3: iDrawMap - 20% from GifSig toward Nadette */
 .section-content.section-3 {
-  bottom: 13%;
-  left: 56%;
+  top: 59%;
+  left: 51.5%;
   transform: translateX(-50%) scale(0.5);
 }
 .section-content.section-3.active {
   transform: translateX(-50%) scale(1);
 }
 
-/* Position 4: Lower left - closer to center */
+/* Position 4: Nadette - lower right (was section-3) */
 .section-content.section-4 {
+  bottom: 13%;
+  left: 56%;
+  transform: translateX(-50%) scale(0.5);
+}
+.section-content.section-4.active {
+  transform: translateX(-50%) scale(1);
+}
+
+/* Position 5: TrueAutoColor - lower left (was section-4) */
+.section-content.section-5 {
   bottom: 11%;
   left: 40%;
   transform: translateX(-50%) scale(0.5);
 }
-.section-content.section-4.active {
+.section-content.section-5.active {
   transform: translateX(-50%) scale(1);
 }
 
@@ -267,7 +283,8 @@ body:has(.cv-overlay.active) .scroll-container {
 .section-content.section-1.exiting,
 .section-content.section-2.exiting,
 .section-content.section-3.exiting,
-.section-content.section-4.exiting {
+.section-content.section-4.exiting,
+.section-content.section-5.exiting {
   opacity: 0;
   transform: translateX(-50%) scale(1.2);
   filter: blur(12px);

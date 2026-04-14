@@ -187,6 +187,14 @@ const App = {
       },
       {
         number: '03',
+        title: 'iDrawMap',
+        logo: 'assets/idrawmap_project.png',
+        link: 'idrawmap.html',
+        externalLink: 'https://www.idrawmap.com',
+        description: 'iDrawMap is a draw-to-search map app that lets you find locations strictly within any polygon you draw, giving you granular proximity search that typical radius-based tools can\'t. It also features three- and four-stop direction routing via Google Maps deep links, with full route details encoded into shareable URLs. Built on OpenStreetMap with Leaflet.js, the Overpass API, and the Gemini API on the backend. No account needed to use it.'
+      },
+      {
+        number: '04',
         title: 'Nadette',
         logo: 'assets/nadette_project.webp',
         link: 'nadette.html',
@@ -194,7 +202,7 @@ const App = {
         description: 'Nadette Ai is a virtual assistant powered by Google Gemini, and it can be called and spoken to with natural language and can execute specific tasks such as multiple emails and texts to different people, making calendar events on both google calendar and icalendar, and the ability to hang up after speaking with the assurance that your last spoken requests are captured, something OpenAi doesn\'t yet do in their call feature for their latest llms. Made with Python, Bash, and Html for the email formatting.'
       },
       {
-        number: '04',
+        number: '05',
         title: 'TrueAutoColor',
         logo: 'assets/TrueAutoColor_project.webp',
         link: 'trueautocolor.html',
@@ -208,20 +216,22 @@ const App = {
     // [startFrame, endFrame] - endFrame is the freeze frame
     const sectionFrames = {
       0: [0, 0],        // virtual section 0 for initial state (frame 0)
-      1: [0, 25],       // frames 0-24 (0-1s), freeze at frame 24
-      2: [26, 56],      // frames 24-56 (1-2.33s), freeze at frame 56 (was 55, now divisible by 8)
-      3: [57, 168],     // frames 56-168 (2.33-7s), freeze at frame 168
-      4: [169, 240]     // frames 168-240 (7-10s), freeze at frame 240
+      1: [0, 25],       // frames 0-25 (0-1s), freeze at frame 25
+      2: [26, 56],      // frames 26-56 (1-2.33s), freeze at frame 56
+      3: [57, 69],      // frames 57-78 (2.33-3.25s), freeze at frame 78
+      4: [70, 168],     // frames 79-168 (3.25-7s), freeze at frame 168
+      5: [169, 240]     // frames 169-240 (7-10s), freeze at frame 240
     };
 
     // Reverse video: frame N in forward = frame (totalFrames - N) in reverse
     // For frame-perfect alignment, reverse freeze frames must exactly match forward freeze frames
-    // Forward freezes at: 24, 56, 168, 240 → Reverse freezes at: 216, 184, 72, 0
+    // Forward freezes at: 25, 56, 69, 168, 240 → Reverse freezes at: 215, 184, 171, 72, 0
     const sectionFramesReverse = {
-      1: [totalFrames - 24, totalFrames],         // frames 216-240, freeze at 216 (matches fwd frame 24)
-      2: [totalFrames - 56, totalFrames - 24],    // frames 184-216, freeze at 184 (matches fwd frame 56)
-      3: [totalFrames - 168, totalFrames - 56],   // frames 72-184, freeze at 72 (matches fwd frame 168)
-      4: [totalFrames - 240, totalFrames - 168]   // frames 0-72, freeze at 0 (matches fwd frame 240)
+      1: [totalFrames - 25, totalFrames],         // frames 215-240, freeze at 215 (matches fwd frame 25)
+      2: [totalFrames - 56, totalFrames - 25],    // frames 184-215, freeze at 184 (matches fwd frame 56)
+      3: [totalFrames - 69, totalFrames - 56],    // frames 171-184, freeze at 171 (matches fwd frame 69)
+      4: [totalFrames - 168, totalFrames - 69],   // frames 72-171, freeze at 72 (matches fwd frame 168)
+      5: [totalFrames - 240, totalFrames - 168]   // frames 0-72, freeze at 0 (matches fwd frame 240)
     };
 
     // Track if videos are pre-buffered and ready at correct positions
@@ -554,7 +564,7 @@ const App = {
       e.preventDefault(); // Prevent default only when handling custom section nav
 
       const delta = e.deltaY;
-      if (delta > 20 && currentSection.value < 4) {
+      if (delta > 20 && currentSection.value < 5) {
         const fromSection = currentSection.value;
         currentSection.value++;
         playForward(fromSection, currentSection.value);
@@ -580,7 +590,7 @@ const App = {
       const touchEndY = e.changedTouches[0].clientY;
       const delta = touchStartY - touchEndY;
 
-      if (delta > 50 && currentSection.value < 4) {
+      if (delta > 50 && currentSection.value < 5) {
         resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value++;
@@ -1185,7 +1195,7 @@ const App = {
       const section = currentSection.value;
       if (section === 1) {
         return { path: 'M12 19v-14M5 12l7-7 7 7', text: 'Swipe up' };
-      } else if (section === 4) {
+      } else if (section === 5) {
         return { path: 'M12 5v14M5 12l7 7 7-7', text: 'Swipe down' };
       } else {
         return { path: 'M12 3v18M5 8l7-7 7 7M5 16l7 7 7-7', text: 'Swipe' };
@@ -1445,7 +1455,7 @@ const App = {
       <!-- Section dots navigation -->
       <div class="section-dots" :class="{ hidden: needsTapToStart }">
         <div
-          v-for="i in 4"
+          v-for="i in 5"
           :key="i"
           class="section-dot"
           :class="{ active: currentSection === i }"
