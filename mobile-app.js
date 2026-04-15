@@ -1286,7 +1286,8 @@ const App = {
           :style="{ opacity: videoReady ? null : 0 }"
           @animationend="initialFadeComplete = true"
         >
-          <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
+          <source src="assets/Coat_Unfolding.mov" type='video/quicktime; codecs="hvc1"'>
+          <source src="assets/Coat_Unfolding.webm" type="video/webm">
         </video>
         <!-- Reverse video: visible only when in reverse mode AND switch is complete -->
         <video
@@ -1301,7 +1302,8 @@ const App = {
           }"
           :style="{ opacity: videoReady ? null : 0 }"
         >
-          <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
+          <source src="assets/Coat_Unfolding_Reverse.mov" type='video/quicktime; codecs="hvc1"'>
+          <source src="assets/Coat_Unfolding_Reverse.webm" type="video/webm">
         </video>
       </div>
 

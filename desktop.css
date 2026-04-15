@@ -131,9 +131,9 @@ body:has(.cv-overlay.active) .scroll-container {
 }
 
 .video-container[data-section="3"] {
-  --gradient-color-1: #4a6488;
-  --gradient-color-2: #56a0e0;
-  --gradient-color-3: #a2d5ec;
+  --gradient-color-1: #2d6a4f;
+  --gradient-color-2: #40916c;
+  --gradient-color-3: #74c69d;
 }
 
 .video-container[data-section="4"] {
@@ -156,11 +156,6 @@ body:has(.cv-overlay.active) .scroll-container {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  mix-blend-mode: multiply;
-  filter:
-    brightness(1.015)
-    contrast(1.02)
-    saturate(0.95);
   /* Start hidden - NO transition here, switches must be instant */
   opacity: 0;
 }

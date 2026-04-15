@@ -7,6 +7,9 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+const _t0 = performance.now();
+const _log = (msg) => console.log(`[${(performance.now() - _t0).toFixed(0)}ms] ${msg}`);
+
 const App = {
   setup() {
     const videoForwardRef = ref(null);
@@ -38,6 +41,20 @@ const App = {
     // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
     const frameToTime = (frame) => (frame / frameRate) + 0.001;
 
+    // Wake suspended video decoders (browsers suspend when tab is backgrounded)
+    // A play→pause cycle forces the decoder to reactivate and render the current frame
+    const wakeVideo = (video) => {
+      if (!video) return;
+      try {
+        const p = video.play();
+        if (p && p.then) {
+          p.then(() => video.pause()).catch(() => {});
+        } else {
+          video.pause();
+        }
+      } catch (_) {}
+    };
+
     const forceSettleToStableState = () => {
       const videoFwd = videoForwardRef.value;
       const videoRev = videoReverseRef.value;
@@ -68,6 +85,10 @@ const App = {
           } catch (_) {}
         }
       }
+
+      // Wake suspended decoders so the frame actually renders
+      wakeVideo(videoFwd);
+      wakeVideo(videoRev);
     };
 
     const onVisibilityChange = () => {
@@ -81,14 +102,10 @@ const App = {
     };
 
     const onPageShow = (e) => {
-      // Avoid interfering with the initial load (pageshow fires on first load too).
-      // Only force-settle on BFCache restores.
-      if (e && e.persisted) {
-        forceSettleToStableState();
-        // Restore scroll lock if an overlay was open when we left
-        if (isScrollLocked.value) {
-          lockBodyScroll();
-        }
+      if (!hasStarted) return;
+      forceSettleToStableState();
+      if (isScrollLocked.value) {
+        lockBodyScroll();
       }
     };
 
@@ -168,6 +185,7 @@ const App = {
       if (!videoFwd) return;
       if (isScrollLocked.value) return;
 
+      _log(`playForward(${fromSection}→${targetSection}) readyState=${videoFwd.readyState} buffered=${videoFwd.buffered.length ? videoFwd.buffered.end(0).toFixed(2) : 'none'}/${videoFwd.duration?.toFixed(2)}`);
       isScrollLocked.value = true;
 
       // Trigger exit animation on current section
@@ -183,23 +201,14 @@ const App = {
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoFwd.playbackRate = playbackRate;
 
-      // Orchestrate gradient transition
+      // Gradient duration matches exact video segment duration
       const actualDuration = segmentLength / playbackRate;
-      const angleTransitionTime = 300; // ms for angle to rotate
-      // For initial 0→1 transition, use full duration for smoother blend from splash
-      const gradientTransitionTime = fromSection === 0
-        ? actualDuration
-        : Math.max(0.4, actualDuration - 0.6);
-      gradientAngle.value = '180deg';
-      setTimeout(() => {
-        gradientDuration.value = `${gradientTransitionTime}s`;
-        gradientSection.value = targetSection;
-      }, angleTransitionTime);
-      setTimeout(() => {
-        gradientAngle.value = '135deg';
-      }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
+        _log(`playForward: startPlayback (currentTime=${videoFwd.currentTime.toFixed(3)}, target endTime=${endTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
+        // Sync gradient with video: set duration, then trigger color change on next frame
+        gradientDuration.value = `${actualDuration}s`;
+        requestAnimationFrame(() => { gradientSection.value = targetSection; });
         videoFwd.play();
 
         // Sync reverse video position (using frame-accurate time)
@@ -219,10 +228,10 @@ const App = {
             if (!initialIntroDone.value && fromSection === 0) {
               initialIntroDone.value = true;
             }
-            // Delay unlocking to allow content fade-in and prevent rapid re-trigger
+            // Brief unlock delay for content fade-in
             setTimeout(() => {
               isScrollLocked.value = false;
-            }, 500);
+            }, 200);
           } else {
             requestAnimationFrame(checkTime);
           }
@@ -233,18 +242,13 @@ const App = {
       const onSeekReady = () => {
         // If we are currently showing Reverse, we need to swap
         if (isReversing.value) {
-          // Mark switch in progress - keeps reverse video visible until forward is ready
           videoSwitchReady.value = false;
-
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              videoSwitchReady.value = true;
-              isReversing.value = false; // Swap to Forward
-              startPlayback();
-            });
+            videoSwitchReady.value = true;
+            isReversing.value = false; // Swap to Forward
+            startPlayback();
           });
         } else {
-          // Already on Forward, just play
           startPlayback();
         }
       };
@@ -266,6 +270,7 @@ const App = {
       if (!videoRev) return;
       if (isScrollLocked.value) return;
 
+      _log(`playReverse(${fromSection}→${targetSection}) readyState=${videoRev.readyState} buffered=${videoRev.buffered.length ? videoRev.buffered.end(0).toFixed(2) : 'none'}/${videoRev.duration?.toFixed(2)}`);
       isScrollLocked.value = true;
 
       // Trigger exit animation on current section
@@ -286,19 +291,14 @@ const App = {
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoRev.playbackRate = playbackRate;
 
-      // Orchestrate gradient transition
+      // Gradient duration matches exact video segment duration
       const actualDuration = segmentLength / playbackRate;
-      const angleTransitionTime = 300; // ms for angle to rotate
-      gradientAngle.value = '180deg';
-      setTimeout(() => {
-        gradientDuration.value = `${actualDuration - 0.6}s`;
-        gradientSection.value = targetSection;
-      }, angleTransitionTime);
-      setTimeout(() => {
-        gradientAngle.value = '135deg';
-      }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
+         _log(`playReverse: startPlayback (currentTime=${videoRev.currentTime.toFixed(3)}, target revEndTime=${revEndTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
+         // Sync gradient with video: set duration, then trigger color change on next frame
+         gradientDuration.value = `${actualDuration}s`;
+         requestAnimationFrame(() => { gradientSection.value = targetSection; });
          videoRev.play();
 
          // Pre-seek forward video for next move (delayed)
@@ -313,10 +313,10 @@ const App = {
 
             exitingSection.value = null; // Clear exiting state
             showContent.value = true;
-            // Delay unlocking to allow content fade-in and prevent rapid re-trigger
+            // Brief unlock delay for content fade-in
             setTimeout(() => {
               isScrollLocked.value = false;
-            }, 500);
+            }, 200);
             // STAY on Reverse video - no swap back!
           } else {
             requestAnimationFrame(checkTime);
@@ -328,15 +328,11 @@ const App = {
       const onSeekReady = () => {
         // If we are currently showing Forward (default), we need to swap
         if (!isReversing.value) {
-          // Mark switch in progress - keeps forward video visible until reverse is ready
           videoSwitchReady.value = false;
-
           requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              videoSwitchReady.value = true;
-              isReversing.value = true; // Swap to Reverse
-              startPlayback();
-            });
+            videoSwitchReady.value = true;
+            isReversing.value = true; // Swap to Reverse
+            startPlayback();
           });
         } else {
           startPlayback();
@@ -411,18 +407,23 @@ const App = {
     };
 
     const tryStart = () => {
+      _log(`tryStart: videoReady=${videoReady.value} windowLoaded=${windowLoaded.value} imagesReady=${imagesReady.value} hasStarted=${hasStarted}`);
       if (!hasStarted && videoReady.value && windowLoaded.value && imagesReady.value) {
         hasStarted = true;
+        _log('tryStart: ALL CONDITIONS MET — signaling app-ready');
         // Signal to splash that app is truly ready for interaction
         document.querySelector('.scroll-container')?.classList.add('app-ready');
+        window.dispatchEvent(new CustomEvent('app-ready'));
 
         // When site becomes visible, fade in video on frame 0
         window.addEventListener('site-reveal', () => {
+          _log('EVENT: site-reveal received → fading in video');
           videoFadedIn.value = true;
         }, { once: true });
 
         // When splash is fully complete, start playback
         window.addEventListener('splash-complete', () => {
+          _log('EVENT: splash-complete received → unlocking + playForward(0,1)');
           isScrollLocked.value = false;
           playForward(0, 1);
         }, { once: true });
@@ -447,27 +448,13 @@ const App = {
       const videoRev = videoReverseRef.value;
 
       // Track all assets that need to load
-      let videosLoaded = 0;
       let imagesLoaded = 0;
-      const totalVideos = 2;
       const totalImages = projects.length;
 
       const checkAllAssetsLoaded = () => {
         if (imagesLoaded === totalImages) {
           imagesReady.value = true;
           siteLoaded.value = true;
-          tryStart();
-        }
-      };
-
-      const onVideoReady = () => {
-        videosLoaded++;
-        if (videosLoaded === 2) {
-          console.log('Both videos loaded');
-          videoReady.value = true;
-          siteLoaded.value = true; // Enable UI visibility immediately
-          videoFwd.currentTime = 0;
-          videoRev.currentTime = frameToTime(totalFrames); // End of reverse = start of forward
           tryStart();
         }
       };
@@ -502,43 +489,77 @@ const App = {
         window.addEventListener('load', onWindowLoad);
       }
 
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      // Detect Safari/WebKit — they need HEVC alpha MOV; everyone else uses VP9 WebM
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+                     || (navigator.userAgent.includes('AppleWebKit') && !navigator.userAgent.includes('Chrome'));
+      const ext = isSafari ? 'mov' : 'webm';
+      _log(`using .${ext} sources (Safari=${isSafari})`);
 
-      if (videoFwd) {
-        videoFwd.muted = true;
-        videoFwd.playsInline = true;
-        videoFwd.addEventListener('canplaythrough', onVideoReady, { once: true });
-        videoFwd.load();
+      // Fully download video into memory via fetch, then assign as blob URL.
+      // This guarantees 100% buffered before playback — no streaming stalls.
+      const preloadVideoBlob = (video, url, label) => {
+        _log(`${label}: fetch start → ${url}`);
+        return fetch(url)
+          .then(r => {
+            if (!r.ok) throw new Error(`${label}: HTTP ${r.status}`);
+            _log(`${label}: fetch response received, reading blob...`);
+            return r.blob();
+          })
+          .then(blob => {
+            _log(`${label}: blob ready (${(blob.size / 1024 / 1024).toFixed(1)} MB), assigning to video`);
+            const blobUrl = URL.createObjectURL(blob);
+            video.src = blobUrl;
+            video.muted = true;
+            video.playsInline = true;
+            // Wait for browser to fully parse blob and have enough data to play without stalling
+            return new Promise((resolve) => {
+              video.addEventListener('loadeddata', () => {
+                _log(`${label}: loadeddata (readyState=${video.readyState}, duration=${video.duration})`);
+              }, { once: true });
+              video.addEventListener('canplaythrough', () => {
+                _log(`${label}: canplaythrough (readyState=${video.readyState}, duration=${video.duration})`);
+                // Prime the decoder — forces Safari HEVC to actually decode a frame
+                const p = video.play();
+                if (p && p.then) {
+                  p.then(() => {
+                    video.pause();
+                    video.currentTime = 0;
+                    _log(`${label}: decoder primed`);
+                    resolve();
+                  }).catch(() => {
+                    _log(`${label}: decoder prime failed (autoplay blocked?), proceeding`);
+                    resolve();
+                  });
+                } else {
+                  video.pause();
+                  video.currentTime = 0;
+                  resolve();
+                }
+              }, { once: true });
+              video.load();
+            });
+          });
+      };
 
-        // iOS: force video to start loading by briefly playing (allowed for muted videos)
-        if (isIOS) {
-          videoFwd.play().then(() => videoFwd.pause()).catch(() => {});
-        }
-      }
-
-      if (videoRev) {
-        videoRev.muted = true;
-        videoRev.playsInline = true;
-        videoRev.addEventListener('canplaythrough', onVideoReady, { once: true });
-        videoRev.load();
-
-        if (isIOS) {
-          videoRev.play().then(() => videoRev.pause()).catch(() => {});
-        }
-      }
-
-      // iOS fallback: if videos haven't loaded in 4 seconds, proceed anyway
-      if (isIOS) {
-        setTimeout(() => {
-          if (!videoReady.value) {
-            console.warn('iOS: video load timeout, proceeding');
-            videoReady.value = true;
-            if (videoFwd) videoFwd.currentTime = 0;
-            if (videoRev) videoRev.currentTime = frameToTime(totalFrames);
-            tryStart();
-          }
-        }, 4000);
-      }
+      Promise.all([
+        preloadVideoBlob(videoFwd, `assets/Coat_Unfolding.${ext}`, 'Forward video'),
+        preloadVideoBlob(videoRev, `assets/Coat_Unfolding_Reverse.${ext}`, 'Reverse video')
+      ]).then(() => {
+        _log('Both videos fully loaded into memory');
+        videoReady.value = true;
+        siteLoaded.value = true;
+        videoFwd.currentTime = 0;
+        videoRev.currentTime = frameToTime(totalFrames);
+        _log(`videoReady=${videoReady.value} windowLoaded=${windowLoaded.value} imagesReady=${imagesReady.value}`);
+        tryStart();
+      }).catch(err => {
+        _log(`Video preload FAILED: ${err}`);
+        console.error('Desktop: Video preload failed', err);
+        // Fallback: proceed anyway so the site isn't permanently stuck
+        videoReady.value = true;
+        siteLoaded.value = true;
+        tryStart();
+      });
     });
 
     onUnmounted(() => {
@@ -940,10 +961,7 @@ const App = {
           playsinline
           preload="auto"
           :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady, 'video-ready': videoFadedIn }"
-        >
-          <source src="assets/Coat_Unfolding.webm" type="video/webm">
-          <source src="assets/Coat_Unfolding.mp4" type="video/mp4">
-        </video>
+        ></video>
         <!-- Reverse video -->
         <video
           ref="videoReverseRef"
@@ -951,10 +969,7 @@ const App = {
           playsinline
           preload="auto"
           :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady), 'video-ready': videoFadedIn }"
-        >
-          <source src="assets/Coat_Unfolding_Reverse.webm" type="video/webm">
-          <source src="assets/Coat_Unfolding_Reverse.mp4" type="video/mp4">
-        </video>
+        ></video>
       </div>
 
       <!-- Hamburger Menu Button -->
