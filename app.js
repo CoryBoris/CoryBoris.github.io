@@ -208,7 +208,12 @@ const App = {
         _log(`playForward: startPlayback (currentTime=${videoFwd.currentTime.toFixed(3)}, target endTime=${endTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
         // Sync gradient with video: set duration, then trigger color change on next frame
         gradientDuration.value = `${actualDuration}s`;
-        requestAnimationFrame(() => { gradientSection.value = targetSection; });
+        // Double-RAF: first paints new duration, second triggers color change
+        requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
+        // Angle rotation: 135→180 at start, 180→135 near end
+        gradientAngle.value = '180deg';
+        const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
+        setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
         videoFwd.play();
 
         // Sync reverse video position (using frame-accurate time)
@@ -298,7 +303,12 @@ const App = {
          _log(`playReverse: startPlayback (currentTime=${videoRev.currentTime.toFixed(3)}, target revEndTime=${revEndTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
          // Sync gradient with video: set duration, then trigger color change on next frame
          gradientDuration.value = `${actualDuration}s`;
-         requestAnimationFrame(() => { gradientSection.value = targetSection; });
+         // Double-RAF: first paints new duration, second triggers color change
+         requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
+         // Angle rotation: 135→180 at start, 180→135 near end
+         gradientAngle.value = '180deg';
+         const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
+         setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
          videoRev.play();
 
          // Pre-seek forward video for next move (delayed)

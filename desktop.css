@@ -98,18 +98,6 @@ body:has(.cv-overlay.active) .scroll-container {
     --gradient-angle var(--angle-duration) ease;
 }
 
-/* Noise overlay to prevent gradient banding/moiré */
-.video-container::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.12;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  z-index: 0;
-}
-
 /* Gradient color presets for each section */
 /* Section 0: Matches splash screen exactly for seamless transition */
 .video-container[data-section="0"] {

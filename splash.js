@@ -68,7 +68,7 @@
 
   /**
    * Check if all conditions are met to proceed
-   * Called after minimum sequence (photo → signature → 1 shimmer) completes
+   * Called at the end of each full shimmer cycle
    */
   function checkReadyToReveal() {
     if (signatureAnimationComplete && shimmerCycleComplete && appReady) {
@@ -76,10 +76,30 @@
       logoContainer.classList.remove('is-shimmering');
       hideSplash();
     } else if (signatureAnimationComplete && shimmerCycleComplete && !appReady) {
-      // App not ready yet - shimmer continues (CSS animation is infinite)
-      // Just wait and check again when app signals ready
-      console.log('Splash: waiting for app ready');
+      // App not ready yet — wait for next complete shimmer cycle, then check again
+      console.log('Splash: not ready, waiting for next shimmer cycle');
+      waitForShimmerCycle().then(() => {
+        checkReadyToReveal();
+      });
     }
+  }
+
+  /**
+   * Wait for exactly one full shimmer animation cycle to complete.
+   * Uses the CSS animationiteration event for precise timing.
+   */
+  function waitForShimmerCycle() {
+    return new Promise((resolve) => {
+      // Use the ::after pseudo-element's animation (shimmer-wave)
+      // animationiteration fires at the exact boundary of each cycle
+      logoContainer.addEventListener('animationiteration', function onIter(e) {
+        // Only listen to the primary shimmer animation
+        if (e.animationName === 'shimmer-wave') {
+          logoContainer.removeEventListener('animationiteration', onIter);
+          resolve();
+        }
+      });
+    });
   }
 
   /**
@@ -392,12 +412,15 @@
             setTimeout(() => {
               console.log('Splash: signature done, shimmer start');
               signatureAnimationComplete = true;
+              // Start shimmer immediately after signature completes
               logoContainer.classList.add('is-shimmering');
 
-              setTimeout(() => {
+              // Wait for exactly 1 full shimmer cycle, then check readiness
+              waitForShimmerCycle().then(() => {
+                console.log('Splash: first shimmer cycle complete');
                 shimmerCycleComplete = true;
                 resolve();
-              }, 2200);
+              });
             }, waitTime);
           });
         });

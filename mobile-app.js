@@ -262,17 +262,8 @@ const App = {
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoFwd.playbackRate = playbackRate;
 
-      // Orchestrate gradient transition
+      // Gradient duration matches exact video segment duration
       const actualDuration = segmentLength / playbackRate;
-      const angleTransitionTime = 300; // ms for angle to rotate
-      gradientAngle.value = '180deg';
-      setTimeout(() => {
-        gradientDuration.value = `${actualDuration - 0.6}s`;
-        gradientSection.value = targetSection;
-      }, angleTransitionTime);
-      setTimeout(() => {
-        gradientAngle.value = '135deg';
-      }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
         // Cancel any existing animation AND transition listener to prevent race conditions
@@ -285,6 +276,14 @@ const App = {
           currentTransitionListener = null;
           currentTransitionElement = null;
         }
+
+        // Sync gradient with video: set duration, then trigger color change
+        gradientDuration.value = `${actualDuration}s`;
+        requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
+        // Angle rotation: 135→180 at start, 180→135 near end
+        gradientAngle.value = '180deg';
+        const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
+        setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
 
         // Capture generation so this animation becomes a no-op if a settle happens mid-flight
         const myGeneration = settleGeneration;
@@ -420,17 +419,8 @@ const App = {
       const playbackRate = segmentLength > 2 ? 2 : 1;
       videoRev.playbackRate = playbackRate;
 
-      // Orchestrate gradient transition
+      // Gradient duration matches exact video segment duration
       const actualDuration = segmentLength / playbackRate;
-      const angleTransitionTime = 300; // ms for angle to rotate
-      gradientAngle.value = '180deg';
-      setTimeout(() => {
-        gradientDuration.value = `${actualDuration - 0.6}s`;
-        gradientSection.value = targetSection;
-      }, angleTransitionTime);
-      setTimeout(() => {
-        gradientAngle.value = '135deg';
-      }, (actualDuration * 1000) - angleTransitionTime);
 
       const startPlayback = () => {
         // Cancel any existing animation AND transition listener to prevent race conditions
@@ -443,6 +433,14 @@ const App = {
           currentTransitionListener = null;
           currentTransitionElement = null;
         }
+
+        // Sync gradient with video: set duration, then trigger color change
+        gradientDuration.value = `${actualDuration}s`;
+        requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
+        // Angle rotation: 135→180 at start, 180→135 near end
+        gradientAngle.value = '180deg';
+        const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
+        setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
 
         // Capture generation so this animation becomes a no-op if a settle happens mid-flight
         const myGeneration = settleGeneration;
@@ -1218,6 +1216,7 @@ const App = {
       currentSection,
       gradientSection,
       gradientDuration,
+      gradientAngle,
       projects,
       scrollToSection,
       isScrollLocked,
@@ -1270,7 +1269,7 @@ const App = {
       <div class="progress-bar" :style="{ width: (scrollProgress * 100) + '%' }"></div>
 
       <!-- Video background with CSS-interpolated gradient -->
-      <div class="video-container" :data-section="gradientSection" :style="{ '--gradient-duration': gradientDuration }">
+      <div class="video-container" :data-section="gradientSection" :style="{ '--gradient-duration': gradientDuration, '--gradient-angle': gradientAngle, '--angle-duration': '0.3s' }">
         <!-- Forward video: visible unless we're in reverse mode AND switch is complete -->
         <video
           ref="videoForwardRef"

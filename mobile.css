@@ -32,6 +32,12 @@
   initial-value: #4b79a1;
 }
 
+@property --gradient-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 135deg;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -78,35 +84,26 @@ body:has(.cv-overlay.active) .scroll-container {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Gradient with extra color stops - always diagonal */
+  /* Gradient with animatable angle and extra color stops */
+  --gradient-angle: 135deg;
   background: linear-gradient(
-    135deg,
+    var(--gradient-angle),
     var(--gradient-color-1) 0%,
     color-mix(in srgb, var(--gradient-color-1) 50%, var(--gradient-color-2)) 25%,
     var(--gradient-color-2) 50%,
     color-mix(in srgb, var(--gradient-color-2) 50%, var(--gradient-color-3)) 75%,
     var(--gradient-color-3) 100%
   );
-  /* Smooth transitions - duration set dynamically */
+  /* Smooth transitions - durations set dynamically */
   --gradient-duration: 1s;
+  --angle-duration: 0.3s;
   transition:
     --gradient-color-1 var(--gradient-duration) ease,
     --gradient-color-2 var(--gradient-duration) ease,
-    --gradient-color-3 var(--gradient-duration) ease;
+    --gradient-color-3 var(--gradient-duration) ease,
+    --gradient-angle var(--angle-duration) ease;
   /* Clip any overflow from scaled video */
   overflow: hidden;
-}
-
-/* Strong noise overlay to completely mask gradient banding */
-.video-container::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  opacity: 0.25;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-  z-index: 0;
 }
 
 /* Gradient color presets for each section */
