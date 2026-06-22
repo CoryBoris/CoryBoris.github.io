@@ -993,7 +993,7 @@ const App = {
       <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'cv-mode': cvView, 'instant': returningFromCV }">
         <div class="menu-content" :class="{ 'email-mode': emailView, 'cv-mode': cvView }">
           <nav class="menu-nav" :class="{ hidden: emailView || cvView }">
-          <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
+
             <a href="about.html">About Me</a>
             <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
             <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -1018,7 +1018,7 @@ const App = {
                </svg>
                Back
              </button>
-             <div class="cv-title">Curriculum Vitae</div>
+
              <button class="cv-open-btn" @click="openCVOverlay">
                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
