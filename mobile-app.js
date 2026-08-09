@@ -20,6 +20,7 @@ const App = {
     // during the splash; this replaces that guard.
     const isScrollLocked = ref(true);
     const showContent = ref(false);
+    const initialIntroDone = ref(false); // True after the first playSection(0→1) completes
     const exitingSection = ref(null); // Track which section is animating out
     const gradientSection = ref(1); // Tracks which gradient to show (CSS handles smooth transition)
     const gradientDuration = ref('1s'); // Duration synced to coat segment animation
@@ -57,6 +58,9 @@ const App = {
     };
 
     const forceSettleToStableState = () => {
+      // Don't interfere with the initial load before the app has started
+      if (!hasStarted) return;
+
       // Invalidate any in-flight RAF animation so its callback becomes a no-op
       settleGeneration++;
       if (currentAnimationId) {
@@ -79,7 +83,10 @@ const App = {
         console.log('Mobile: forceSettleToStableState - preserving scroll lock (overlay open)');
       }
       exitingSection.value = null;
-      showContent.value = true;
+      // Only show content if the initial intro animation has completed.
+      // Before that, showContent must stay false so the project icon doesn't
+      // appear during the first coat movement (frame 0 → first stop frame).
+      showContent.value = initialIntroDone.value;
 
       // Repaint the freeze frame for the current section. A canvas keeps its
       // pixels across backgrounding and there is no decoder to wake, so unlike
@@ -244,6 +251,10 @@ const App = {
         drawFrame(toFrame);
         exitingSection.value = null;
         showContent.value = true;
+        // Mark the initial intro as done so forceSettleToStableState can show content
+        if (!initialIntroDone.value && fromSection === 0) {
+          initialIntroDone.value = true;
+        }
         // Listen for actual CSS transitionend - no guessing
         const sectionEl = document.querySelector(`.section-content.section-${targetSection}`);
         if (sectionEl) {
