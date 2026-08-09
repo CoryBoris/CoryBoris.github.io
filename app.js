@@ -315,6 +315,16 @@ const App = {
       // Prevent default scroll
       document.body.style.overflow = 'hidden';
 
+      // Pick up CV PDF blob URL preloaded during splash (if ready yet)
+      if (window.__cvPdfBlobUrl) {
+        cvPdfUrl.value = window.__cvPdfBlobUrl;
+      } else {
+        // Splash preload may still be in flight; check again shortly
+        setTimeout(() => {
+          if (window.__cvPdfBlobUrl) cvPdfUrl.value = window.__cvPdfBlobUrl;
+        }, 2000);
+      }
+
       document.addEventListener('visibilitychange', onVisibilityChange);
       window.addEventListener('pageshow', onPageShow);
       window.addEventListener('focus', onVisibilityChange);
@@ -416,7 +426,6 @@ const App = {
 
     const menuOpen = ref(false);
     const emailView = ref(false);
-    const cvView = ref(false);
     const cvOverlayOpen = ref(false);
     const cvPdfReady = ref(true);
     const cvPdfUrl = ref('');
@@ -452,7 +461,6 @@ const App = {
         menuOpen.value = false;
         setTimeout(() => {
           emailView.value = false;
-          cvView.value = false;
           copyButtonText.value = 'Copy Address';
           unlockBodyScroll();
           isScrollLocked.value = false;
@@ -462,11 +470,10 @@ const App = {
 
       if (menuOpen.value) {
         menuOpen.value = false;
-        // Shorter delay if in email/cv view (fast close), else normal delay (halved)
-        const delay = (emailView.value || cvView.value) ? 300 : 400;
+        // Shorter delay if in email view (fast close), else normal delay (halved)
+        const delay = emailView.value ? 300 : 400;
         setTimeout(() => {
           emailView.value = false;
-          cvView.value = false;
           copyButtonText.value = 'Copy Address';
           unlockBodyScroll();
           isScrollLocked.value = false;
@@ -486,29 +493,61 @@ const App = {
       emailView.value = false;
     };
 
-    const showCV = () => {
-      cvView.value = true;
-    };
-
-    const hideCV = () => {
-      cvView.value = false;
-    };
-
+    // --- Zoom isolation for CV overlay ---
+    // When the CV overlay is open, the user can zoom (pinch on mobile, PDF
+    // viewer controls on desktop).  On mobile this zooms the entire viewport,
+    // which would leave the underlying page zoomed after the overlay closes.
+    // We save the scroll position + visualViewport scale before opening, and
+    // restore them on close by toggling the viewport meta tag (which forces
+    // iOS Safari to reset the zoom level).
+    let cvSavedScrollX = 0;
+    let cvSavedScrollY = 0;
+    let cvViewportMeta = null;
+    let cvOriginalViewportContent = '';
 
     const openCVOverlay = () => {
+      cvSavedScrollX = window.scrollX;
+      cvSavedScrollY = window.scrollY;
       cvOverlayOpen.value = true;
       menuOpen.value = false;
       // Keep scroll locked
       lockBodyScroll();
       isScrollLocked.value = true;
+      // Allow zoom while CV overlay is open (mobile)
+      if (isTouchDevice) {
+        cvViewportMeta = document.querySelector('meta[name="viewport"]');
+        if (cvViewportMeta) {
+          cvOriginalViewportContent = cvViewportMeta.content;
+          cvViewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover';
+        }
+      }
       // Reset menu states after close animation
       setTimeout(() => {
         emailView.value = false;
-        cvView.value = false;
       }, 250);
     };
 
     const returningFromCV = ref(false);
+
+    const restoreZoomAndScroll = () => {
+      if (isTouchDevice && cvViewportMeta) {
+        // Resetting the viewport meta to maximum-scale=1 forces iOS Safari
+        // to snap the zoom level back to 1, preventing the underlying page
+        // from inheriting the CV's zoom state.
+        cvViewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        // Force a reflow so the browser applies the new meta immediately
+        void cvViewportMeta.offsetHeight;
+        // Restore after a tick to let the zoom reset propagate
+        requestAnimationFrame(() => {
+          window.scrollTo(cvSavedScrollX, cvSavedScrollY);
+          cvViewportMeta = null;
+          cvOriginalViewportContent = '';
+        });
+      } else {
+        // Desktop: just restore scroll position (PDF viewer zoom is internal)
+        window.scrollTo(cvSavedScrollX, cvSavedScrollY);
+      }
+    };
 
     const closeCVOverlay = () => {
       cvOverlayOpen.value = false;
@@ -522,6 +561,7 @@ const App = {
       setTimeout(() => {
         returningFromCV.value = false;
       }, 50);
+      restoreZoomAndScroll();
     };
 
     // Close CV overlay and menu entirely, return to body
@@ -531,11 +571,11 @@ const App = {
       // Fast close since coming from CV
       setTimeout(() => {
         emailView.value = false;
-        cvView.value = false;
         copyButtonText.value = 'Copy Address';
         unlockBodyScroll();
         isScrollLocked.value = false;
       }, 300);
+      restoreZoomAndScroll();
     };
 
     const downloadCV = () => {
@@ -755,7 +795,6 @@ const App = {
       videoFadedIn,
       menuOpen,
       emailView,
-      cvView,
       cvOverlayOpen,
       cvPdfReady,
       cvPdfUrl,
@@ -764,8 +803,6 @@ const App = {
       toggleMenu,
       showEmail,
       hideEmail,
-      showCV,
-      hideCV,
       openCVOverlay,
       closeCVOverlay,
       closeAllOverlays,
@@ -801,17 +838,18 @@ const App = {
       </div>
 
       <!-- Hamburger Menu Button -->
-      <button class="hamburger-btn" :class="{ active: menuOpen || cvOverlayOpen }" @click="toggleMenu">
+      <button class="hamburger-btn" :class="{ active: menuOpen }" v-show="!cvOverlayOpen" @click="toggleMenu">
         <span></span>
         <span></span>
         <span></span>
       </button>
 
       <!-- Menu Overlay -->
-      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'cv-mode': cvView, 'instant': returningFromCV }">
-        <div class="menu-content" :class="{ 'email-mode': emailView, 'cv-mode': cvView }">
-          <nav class="menu-nav" :class="{ hidden: emailView || cvView }">
+      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'instant': returningFromCV }">
+        <div class="menu-content" :class="{ 'email-mode': emailView }">
+          <nav class="menu-nav" :class="{ hidden: emailView }">
 
+            <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
             <a href="about.html">About Me</a>
             <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
             <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -827,26 +865,6 @@ const App = {
              </button>
              <a href="mailto:CoryBoris@CoryBoris.com" class="email-link">CoryBoris@CoryBoris.com</a>
              <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
-          </div>
-
-          <div class="cv-view" :class="{ active: cvView }">
-             <button class="menu-back-btn" @click="hideCV">
-               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <path d="M19 12H5M12 19l-7-7 7-7"/>
-               </svg>
-               Back
-             </button>
-
-             <button class="cv-open-btn" @click="openCVOverlay">
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                 <polyline points="14 2 14 8 20 8"/>
-                 <line x1="16" y1="13" x2="8" y2="13"/>
-                 <line x1="16" y1="17" x2="8" y2="17"/>
-                 <polyline points="10 9 9 9 8 9"/>
-               </svg>
-               View Resume
-             </button>
           </div>
         </div>
       </div>
@@ -881,7 +899,7 @@ const App = {
           </div>
           <div class="cv-pdf-container" v-if="cvPdfReady">
             <iframe
-              src="cv-content.html"
+              :src="cvPdfUrl || 'assets/Cory Boris Curriculum Vitae.pdf'"
               class="cv-pdf-iframe"
             ></iframe>
           </div>

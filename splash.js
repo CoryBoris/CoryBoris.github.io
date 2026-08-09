@@ -386,6 +386,37 @@
       return preloadImage(gifBlobUrl);
     });
 
+  // Preload CV assets in parallel during splash so the overlay opens instantly.
+  // Desktop: fetch the PDF as a blob and create a blob URL for the iframe.
+  // Mobile: warm the browser cache for cv-content.html and its Tinos font
+  //         subsets so the iframe renders with zero network wait.
+  (function preloadCV() {
+    if (isTouchDevice) {
+      // Mobile: prefetch the HTML replica and font subsets to warm cache
+      var cvAssets = [
+        'cv-content.html',
+        'assets/fonts/tinos-regular.woff2',
+        'assets/fonts/tinos-bold.woff2',
+        'assets/fonts/tinos-italic.woff2',
+        'assets/fonts/tinos-bolditalic.woff2'
+      ];
+      cvAssets.forEach(function (url) {
+        fetch(url, { cache: 'force-cache' }).catch(function () {});
+      });
+    } else {
+      // Desktop: fetch PDF as blob, store URL for app.js to use
+      fetch('assets/Cory Boris Curriculum Vitae.pdf', { cache: 'force-cache' })
+        .then(function (r) { return r.blob(); })
+        .then(function (blob) {
+          window.__cvPdfBlobUrl = URL.createObjectURL(blob);
+          console.log('Splash: CV PDF preloaded as blob');
+        })
+        .catch(function (err) {
+          console.warn('Splash: CV PDF preload failed, will load directly', err);
+        });
+    }
+  })();
+
   waitForPageVisibility()
     .then(() => {
       // Wait for BOTH logo AND signature to be fully loaded before showing anything

@@ -523,7 +523,6 @@ const App = {
     const menuOpen = ref(false);
     const menuClosing = ref(false);
     const emailView = ref(false);
-    const cvView = ref(false);
     const cvOverlayOpen = ref(false);
     const cvPdfReady = ref(true);
     const cvPdfUrl = ref('');
@@ -570,7 +569,6 @@ const App = {
         setTimeout(() => {
           menuClosing.value = false;
           emailView.value = false;
-          cvView.value = false;
           copyButtonText.value = 'Copy Address';
           unlockBodyScroll();
           isScrollLocked.value = false;
@@ -584,15 +582,14 @@ const App = {
         menuClosing.value = true;
         menuOpen.value = false;
 
-        // If in email/cv view, we close faster (0.25s transition in CSS)
+        // If in email view, we close faster (0.25s transition in CSS)
         // If in main menu, we wait for stagger (0.8s - halved from 1.6s)
-        const closeDuration = (emailView.value || cvView.value) ? 300 : 800;
+        const closeDuration = emailView.value ? 300 : 800;
 
         setTimeout(() => {
           menuClosing.value = false;
           // Reset submenu views
           emailView.value = false;
-          cvView.value = false;
           copyButtonText.value = 'Copy Address';
           // Unlock scroll when fully exiting to body
           unlockBodyScroll();
@@ -617,31 +614,49 @@ const App = {
       emailView.value = false;
     };
 
-    const showCV = () => {
-      cvView.value = true;
-    };
-
-    const hideCV = () => {
-      cvView.value = false;
-    };
-
+    // --- Zoom isolation for CV overlay ---
+    // Save scroll position before opening, restore on close by toggling
+    // the viewport meta tag (forces iOS Safari to reset zoom level).
+    let cvSavedScrollX = 0;
+    let cvSavedScrollY = 0;
+    let cvViewportMeta = null;
 
     const openCVOverlay = () => {
+      cvSavedScrollX = window.scrollX;
+      cvSavedScrollY = window.scrollY;
       cvOverlayOpen.value = true;
       menuOpen.value = false;
       // Keep scroll locked (already locked from menu)
       lockBodyScroll();
       isScrollLocked.value = true;
       pushOverlayState('cv');
+      // Allow zoom while CV overlay is open
+      cvViewportMeta = document.querySelector('meta[name="viewport"]');
+      if (cvViewportMeta) {
+        cvViewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover';
+      }
       // Reset menu states after close animation
       setTimeout(() => {
         emailView.value = false;
-        cvView.value = false;
         menuClosing.value = false;
       }, 250);
     };
 
     const returningFromCV = ref(false);
+
+    const restoreZoomAndScroll = () => {
+      if (cvViewportMeta) {
+        // Resetting to maximum-scale=1 forces iOS Safari to snap zoom back to 1
+        cvViewportMeta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+        void cvViewportMeta.offsetHeight;
+        requestAnimationFrame(() => {
+          window.scrollTo(cvSavedScrollX, cvSavedScrollY);
+          cvViewportMeta = null;
+        });
+      } else {
+        window.scrollTo(cvSavedScrollX, cvSavedScrollY);
+      }
+    };
 
     const closeCVOverlay = () => {
       cvOverlayOpen.value = false;
@@ -655,6 +670,7 @@ const App = {
       setTimeout(() => {
         returningFromCV.value = false;
       }, 50);
+      restoreZoomAndScroll();
     };
 
     // Close CV overlay and menu entirely, return to body
@@ -666,11 +682,11 @@ const App = {
       setTimeout(() => {
         menuClosing.value = false;
         emailView.value = false;
-        cvView.value = false;
         copyButtonText.value = 'Copy Address';
         unlockBodyScroll();
         isScrollLocked.value = false;
       }, 300);
+      restoreZoomAndScroll();
     };
 
     const downloadCV = () => {
@@ -894,14 +910,11 @@ const App = {
       toggleMenu,
       showEmail,
       hideEmail,
-      showCV,
-      hideCV,
       openCVOverlay,
       closeCVOverlay,
       closeAllOverlays,
       downloadCV,
       downloadDocx,
-      cvView,
       cvOverlayOpen,
       cvPdfReady,
       cvPdfUrl,
@@ -944,17 +957,18 @@ const App = {
       </div>
 
       <!-- Hamburger Menu Button -->
-      <button class="hamburger-btn" :class="{ active: menuOpen || cvOverlayOpen }" @click="toggleMenu">
+      <button class="hamburger-btn" :class="{ active: menuOpen }" v-show="!cvOverlayOpen" @click="toggleMenu">
         <span></span>
         <span></span>
         <span></span>
       </button>
 
       <!-- Menu Overlay -->
-      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'cv-mode': cvView, 'instant': returningFromCV }">
-        <div class="menu-content" :class="{ 'email-mode': emailView, 'cv-mode': cvView }">
-          <nav class="menu-nav" :class="{ hidden: emailView || cvView }">
+      <div class="menu-overlay" :class="{ active: menuOpen, 'email-mode': emailView, 'instant': returningFromCV }">
+        <div class="menu-content" :class="{ 'email-mode': emailView }">
+          <nav class="menu-nav" :class="{ hidden: emailView }">
 
+            <a href="#" @click.prevent="openCVOverlay">Curriculum Vitae</a>
             <a href="about.html">About Me</a>
             <a href="https://www.linkedin.com/in/coryboris" target="_blank" rel="noopener noreferrer">LinkedIn</a>
             <a href="https://github.com/CoryWBoris" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -970,26 +984,6 @@ const App = {
              </button>
              <a href="mailto:CoryBoris@CoryBoris.com" class="email-link">CoryBoris@CoryBoris.com</a>
              <button class="copy-btn" @click="copyEmail">{{ copyButtonText }}</button>
-          </div>
-
-          <div class="cv-view" :class="{ active: cvView }">
-             <button class="menu-back-btn" @click="hideCV">
-               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <path d="M19 12H5M12 19l-7-7 7-7"/>
-               </svg>
-               Back
-             </button>
-
-             <button class="cv-open-btn" @click="openCVOverlay">
-               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                 <polyline points="14 2 14 8 20 8"/>
-                 <line x1="16" y1="13" x2="8" y2="13"/>
-                 <line x1="16" y1="17" x2="8" y2="17"/>
-                 <polyline points="10 9 9 9 8 9"/>
-               </svg>
-               View Resume
-             </button>
           </div>
         </div>
       </div>
