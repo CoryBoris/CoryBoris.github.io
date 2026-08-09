@@ -12,20 +12,17 @@ const _log = (msg) => console.log(`[${(performance.now() - _t0).toFixed(0)}ms] $
 
 const App = {
   setup() {
-    const videoForwardRef = ref(null);
-    const videoReverseRef = ref(null);
+    const coatCanvasRef = ref(null);
     const scrollProgress = ref(0);
     const currentSection = ref(1);
-    const videoReady = ref(false);
+    const videoReady = ref(false); // Frame sequence fetched AND fully decoded
     const windowLoaded = ref(false);
     const imagesReady = ref(false);
     const siteLoaded = ref(false);
     let hasStarted = false;
     const showContent = ref(false);
-    const videoFadedIn = ref(false); // Controls video fade-in on frame 0
+    const videoFadedIn = ref(false); // Controls coat fade-in on frame 0
     const exitingSection = ref(null); // Track which section is animating out
-    const isReversing = ref(false);
-    const videoSwitchReady = ref(true); // Tracks if incoming video is ready to show
     const initialIntroDone = ref(false);
     const isScrollLocked = ref(true); // Block scrolls during animation
     const gradientSection = ref(0); // Start at 0 (matches splash), transitions to 1 on initial play
@@ -33,62 +30,75 @@ const App = {
     const gradientAngle = ref('135deg'); // Angle: 135deg at rest, 180deg during color transition
     const angleDuration = ref('0.3s'); // Quick angle transitions
 
-    const videoDuration = 10;
     const frameRate = 24;
-    const totalFrames = 240; // 10 seconds * 24 fps
+    const totalFrames = 240; // last frame index; the sequence holds 0..240
 
-    // Convert frame number to timestamp
-    // Add tiny epsilon to land solidly within the target frame, avoiding boundary rounding issues
-    const frameToTime = (frame) => (frame / frameRate) + 0.001;
+    // --- Coat frame sequence -------------------------------------------------
+    // The coat used to be two <video> elements (forward + a pre-reversed file).
+    // It is now a decoded WebP frame sequence painted to a canvas. See
+    // coat-frames.js for why: VP9-with-alpha has no hardware decoder, and the
+    // 1-second keyframe spacing meant every seek decoded ~24 dependent frames
+    // before it could paint. Frames are independent, so a seek is an array index.
+    let coatFrames = null;   // FrameSequence, or null if loading failed outright
+    let coatCtx = null;
+    let animHandle = 0;
 
-    // Wake suspended video decoders (browsers suspend when tab is backgrounded)
-    // A play→pause cycle forces the decoder to reactivate and render the current frame
-    const wakeVideo = (video) => {
-      if (!video) return;
-      try {
-        const p = video.play();
-        if (p && p.then) {
-          p.then(() => video.pause()).catch(() => {});
+    const drawFrame = (index) => {
+      if (!coatFrames || !coatCtx) return;
+      coatFrames.draw(coatCtx, index);
+    };
+
+    const stopAnimation = () => {
+      if (animHandle) {
+        cancelAnimationFrame(animHandle);
+        animHandle = 0;
+      }
+    };
+
+    /**
+     * Walk from one frame to another over a fixed wall-clock duration.
+     *
+     * The loop is driven by elapsed time rather than by the decoder, so a slow
+     * frame is skipped instead of stalling the animation. That is the whole
+     * reason this can never "buffer" the way the video did.
+     */
+    const animateFrames = (fromFrame, toFrame, durationMs, onDone) => {
+      stopAnimation();
+      if (!coatFrames) {
+        onDone();
+        return;
+      }
+      // Decode the upcoming frames into ImageBitmaps off the main thread.
+      coatFrames.prewarm(fromFrame, toFrame);
+
+      const startedAt = performance.now();
+      const span = toFrame - fromFrame;
+
+      const step = (now) => {
+        const t = durationMs <= 0 ? 1 : Math.min(1, (now - startedAt) / durationMs);
+        drawFrame(Math.round(fromFrame + span * t));
+        if (t < 1) {
+          animHandle = requestAnimationFrame(step);
         } else {
-          video.pause();
+          animHandle = 0;
+          onDone();
         }
-      } catch (_) {}
+      };
+      animHandle = requestAnimationFrame(step);
     };
 
     const forceSettleToStableState = () => {
-      const videoFwd = videoForwardRef.value;
-      const videoRev = videoReverseRef.value;
-
       // If we got backgrounded mid-transition, ensure UI is interactive again
       exitingSection.value = null;
       showContent.value = initialIntroDone.value;
-      videoSwitchReady.value = true;
       // Re-enable scrolling if intro is done
       isScrollLocked.value = !initialIntroDone.value;
 
-      // Snap visible video to the freeze frame for the current section
-      const section = currentSection.value;
-      if (isReversing.value) {
-        const freezeFrame = sectionFramesReverse[section]?.[0];
-        if (videoRev && typeof freezeFrame === 'number') {
-          try {
-            videoRev.pause();
-            videoRev.currentTime = frameToTime(freezeFrame);
-          } catch (_) {}
-        }
-      } else {
-        const freezeFrame = sectionFrames[section]?.[1];
-        if (videoFwd && typeof freezeFrame === 'number') {
-          try {
-            videoFwd.pause();
-            videoFwd.currentTime = frameToTime(freezeFrame);
-          } catch (_) {}
-        }
-      }
-
-      // Wake suspended decoders so the frame actually renders
-      wakeVideo(videoFwd);
-      wakeVideo(videoRev);
+      // Snap the canvas to the freeze frame for the current section. Unlike a
+      // video decoder there is nothing to wake up, so this is just a repaint.
+      stopAnimation();
+      const freezeFrame = sectionFrames[currentSection.value]?.[1];
+      if (typeof freezeFrame === 'number') drawFrame(freezeFrame);
     };
 
     const onVisibilityChange = () => {
@@ -167,198 +177,59 @@ const App = {
       5: [168, 240]     // frames 168-240 (7-10s), freeze at frame 240
     };
 
-    // Reverse video: frame N in forward = frame (totalFrames - N) in reverse
-    // For frame-perfect alignment, reverse freeze frames must exactly match forward freeze frames
-    // Forward freezes at: 23, 55, 69, 168, 240 → Reverse freezes at: 217, 185, 171, 72, 0
-    const sectionFramesReverse = {
-      1: [totalFrames - 24, totalFrames],         // frames 217-240, freeze at 217 (matches fwd frame 23)
-      2: [totalFrames - 56, totalFrames - 24],    // frames 185-217, freeze at 185 (matches fwd frame 55)
-      3: [totalFrames - 70, totalFrames - 56],    // frames 171-185, freeze at 171 (matches fwd frame 69)
-      4: [totalFrames - 169, totalFrames - 70],   // frames 72-171, freeze at 72 (matches fwd frame 168)
-      5: [totalFrames - 240, totalFrames - 169]   // frames 0-72, freeze at 0 (matches fwd frame 240)
-    };
+    // Section freeze frames double as the rest positions we keep permanently
+    // decoded as ImageBitmaps, so every settled state is a zero-cost GPU blit.
+    const FREEZE_FRAMES = [0, 23, 55, 69, 168, 240];
 
-    // Play video forward (supports multi-section jumps)
-    const playForward = (fromSection, targetSection) => {
-      const videoFwd = videoForwardRef.value;
-      const videoRev = videoReverseRef.value;
-      if (!videoFwd) return;
+    /**
+     * Animate the coat between two sections, in either direction.
+     *
+     * This single function replaces the old playForward/playReverse pair. There
+     * is no longer a reversed asset, no second decoder to swap to, and no seek
+     * to wait on - going backwards just means counting the frame index down.
+     */
+    const playSection = (fromSection, targetSection) => {
       if (isScrollLocked.value) return;
-
-      _log(`playForward(${fromSection}→${targetSection}) readyState=${videoFwd.readyState} buffered=${videoFwd.buffered.length ? videoFwd.buffered.end(0).toFixed(2) : 'none'}/${videoFwd.duration?.toFixed(2)}`);
       isScrollLocked.value = true;
 
       // Trigger exit animation on current section
       exitingSection.value = fromSection;
       showContent.value = false;
 
-      // For multi-section jumps, play from current position to target end frame
-      const [, startEndFrame] = sectionFrames[fromSection];
-      const [, endFrame] = sectionFrames[targetSection];
-      const startTime = frameToTime(startEndFrame);
-      const endTime = frameToTime(endFrame);
-      const segmentLength = endTime - startTime;
-      const playbackRate = segmentLength > 2 ? 2 : 1;
-      videoFwd.playbackRate = playbackRate;
+      const fromFrame = sectionFrames[fromSection][1];
+      const toFrame = sectionFrames[targetSection][1];
 
-      // Gradient duration matches exact video segment duration
-      const actualDuration = segmentLength / playbackRate;
+      // Preserve the original pacing: the segment runs at 24fps, and segments
+      // longer than 2s run at double speed (what video.playbackRate = 2 did).
+      const spanSeconds = Math.abs(toFrame - fromFrame) / frameRate;
+      const speed = spanSeconds > 2 ? 2 : 1;
+      const actualDuration = spanSeconds / speed;
 
-      const startPlayback = () => {
-        _log(`playForward: startPlayback (currentTime=${videoFwd.currentTime.toFixed(3)}, target endTime=${endTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
-        // Sync gradient with video: set duration, then trigger color change on next frame
-        gradientDuration.value = `${actualDuration}s`;
-        // Double-RAF: first paints new duration, second triggers color change
-        requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
-        // Angle rotation: 135→180 at start, 180→135 near end
-        gradientAngle.value = '180deg';
-        const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
-        setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
-        videoFwd.play();
+      _log(`playSection(${fromSection}\u2192${targetSection}) frames ${fromFrame}\u2192${toFrame} over ${actualDuration.toFixed(3)}s`);
 
-        // Sync reverse video position (using frame-accurate time)
-        // DELAY this seek to ensure videoRev is fully hidden (opacity applied) before scrubbing
+      // Sync gradient with the animation: set duration, then trigger the colour
+      // change on the next frame.
+      gradientDuration.value = `${actualDuration}s`;
+      // Double-RAF: first paints new duration, second triggers color change
+      requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
+      // Angle rotation: 135->180 at start, 180->135 near end
+      gradientAngle.value = '180deg';
+      const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
+      setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
+
+      animateFrames(fromFrame, toFrame, actualDuration * 1000, () => {
+        drawFrame(toFrame);
+        exitingSection.value = null; // Clear exiting state
+        showContent.value = true;
+        if (!initialIntroDone.value && fromSection === 0) {
+          initialIntroDone.value = true;
+        }
+        // Brief unlock delay for content fade-in
         setTimeout(() => {
-          const revEndFrame = sectionFramesReverse[targetSection][0];
-          if (videoRev) videoRev.currentTime = frameToTime(revEndFrame);
-        }, 100);
-
-        const checkTime = () => {
-          if (videoFwd.currentTime >= endTime - 0.02) {
-            videoFwd.pause();
-            videoFwd.currentTime = endTime;
-
-            exitingSection.value = null; // Clear exiting state
-            showContent.value = true;
-            if (!initialIntroDone.value && fromSection === 0) {
-              initialIntroDone.value = true;
-            }
-            // Brief unlock delay for content fade-in
-            setTimeout(() => {
-              isScrollLocked.value = false;
-            }, 200);
-          } else {
-            requestAnimationFrame(checkTime);
-          }
-        };
-        requestAnimationFrame(checkTime);
-      };
-
-      const onSeekReady = () => {
-        // If we are currently showing Reverse, we need to swap
-        if (isReversing.value) {
-          videoSwitchReady.value = false;
-          requestAnimationFrame(() => {
-            videoSwitchReady.value = true;
-            isReversing.value = false; // Swap to Forward
-            startPlayback();
-          });
-        } else {
-          startPlayback();
-        }
-      };
-
-      // Ensure start position and wait for seek to complete before playing
-      // If already at position, seeked won't fire - call directly
-      if (Math.abs(videoFwd.currentTime - startTime) < 0.05) {
-        onSeekReady();
-      } else {
-        videoFwd.currentTime = startTime;
-        videoFwd.addEventListener('seeked', onSeekReady, { once: true });
-      }
+          isScrollLocked.value = false;
+        }, 200);
+      });
     };
-
-    // Play video in reverse (using the reversed video file)
-    const playReverse = (fromSection, targetSection) => {
-      const videoFwd = videoForwardRef.value;
-      const videoRev = videoReverseRef.value;
-      if (!videoRev) return;
-      if (isScrollLocked.value) return;
-
-      _log(`playReverse(${fromSection}→${targetSection}) readyState=${videoRev.readyState} buffered=${videoRev.buffered.length ? videoRev.buffered.end(0).toFixed(2) : 'none'}/${videoRev.duration?.toFixed(2)}`);
-      isScrollLocked.value = true;
-
-      // Trigger exit animation on current section
-      exitingSection.value = fromSection;
-      showContent.value = false;
-
-      // Get frame numbers
-      const [revStartFrame] = sectionFramesReverse[fromSection];
-      const [revEndFrame] = sectionFramesReverse[targetSection];
-      const [, targetEndFrame] = sectionFrames[targetSection];
-
-      // Convert to timestamps
-      const revStartTime = frameToTime(revStartFrame);
-      const revEndTime = frameToTime(revEndFrame);
-      const targetEndTime = frameToTime(targetEndFrame);
-
-      const segmentLength = revEndTime - revStartTime;
-      const playbackRate = segmentLength > 2 ? 2 : 1;
-      videoRev.playbackRate = playbackRate;
-
-      // Gradient duration matches exact video segment duration
-      const actualDuration = segmentLength / playbackRate;
-
-      const startPlayback = () => {
-         _log(`playReverse: startPlayback (currentTime=${videoRev.currentTime.toFixed(3)}, target revEndTime=${revEndTime.toFixed(3)}, rate=${playbackRate}, gradientDur=${actualDuration.toFixed(3)}s)`);
-         // Sync gradient with video: set duration, then trigger color change on next frame
-         gradientDuration.value = `${actualDuration}s`;
-         // Double-RAF: first paints new duration, second triggers color change
-         requestAnimationFrame(() => { requestAnimationFrame(() => { gradientSection.value = targetSection; }); });
-         // Angle rotation: 135→180 at start, 180→135 near end
-         gradientAngle.value = '180deg';
-         const angleReturnMs = Math.max(0, (actualDuration * 1000) - 300);
-         setTimeout(() => { gradientAngle.value = '135deg'; }, angleReturnMs);
-         videoRev.play();
-
-         // Pre-seek forward video for next move (delayed)
-         setTimeout(() => {
-            if (videoFwd) videoFwd.currentTime = targetEndTime;
-         }, 100);
-
-        const checkTime = () => {
-          if (videoRev.currentTime >= revEndTime - 0.02) {
-            videoRev.pause();
-            videoRev.currentTime = revEndTime;
-
-            exitingSection.value = null; // Clear exiting state
-            showContent.value = true;
-            // Brief unlock delay for content fade-in
-            setTimeout(() => {
-              isScrollLocked.value = false;
-            }, 200);
-            // STAY on Reverse video - no swap back!
-          } else {
-            requestAnimationFrame(checkTime);
-          }
-        };
-        requestAnimationFrame(checkTime);
-      };
-
-      const onSeekReady = () => {
-        // If we are currently showing Forward (default), we need to swap
-        if (!isReversing.value) {
-          videoSwitchReady.value = false;
-          requestAnimationFrame(() => {
-            videoSwitchReady.value = true;
-            isReversing.value = true; // Swap to Reverse
-            startPlayback();
-          });
-        } else {
-          startPlayback();
-        }
-      };
-
-      // Ensure start position and wait for seek to complete before playing
-      // If already at position, seeked won't fire - call directly
-      if (Math.abs(videoRev.currentTime - revStartTime) < 0.05) {
-        onSeekReady();
-      } else {
-        videoRev.currentTime = revStartTime;
-        videoRev.addEventListener('seeked', onSeekReady, { once: true });
-      }
-    };
-
 
     // Handle touch events for mobile
     let touchStartY = 0;
@@ -373,11 +244,11 @@ const App = {
       if (delta > 20 && currentSection.value < 5) {
         const fromSection = currentSection.value;
         currentSection.value++;
-        playForward(fromSection, currentSection.value);
+        playSection(fromSection, currentSection.value);
       } else if (delta < -20 && currentSection.value > 1) {
         const fromSection = currentSection.value;
         currentSection.value--;
-        playReverse(fromSection, currentSection.value);
+        playSection(fromSection, currentSection.value);
       }
     }
 
@@ -395,12 +266,12 @@ const App = {
         resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value++;
-        playForward(fromSection, currentSection.value);
+        playSection(fromSection, currentSection.value);
       } else if (delta < -50 && currentSection.value > 1) {
         resetBounceTimer();
         const fromSection = currentSection.value;
         currentSection.value--;
-        playReverse(fromSection, currentSection.value);
+        playSection(fromSection, currentSection.value);
       }
     }
 
@@ -410,9 +281,9 @@ const App = {
       const fromSection = currentSection.value;
       currentSection.value = sectionIndex;
       if (sectionIndex > fromSection) {
-        playForward(fromSection, sectionIndex);
+        playSection(fromSection, sectionIndex);
       } else {
-        playReverse(fromSection, sectionIndex);
+        playSection(fromSection, sectionIndex);
       }
     };
 
@@ -433,9 +304,9 @@ const App = {
 
         // When splash is fully complete, start playback
         window.addEventListener('splash-complete', () => {
-          _log('EVENT: splash-complete received → unlocking + playForward(0,1)');
+          _log('EVENT: splash-complete received → unlocking + playSection(0,1)');
           isScrollLocked.value = false;
-          playForward(0, 1);
+          playSection(0, 1);
         }, { once: true });
       }
     };
@@ -452,10 +323,6 @@ const App = {
       window.addEventListener('wheel', handleWheel, { passive: false });
       window.addEventListener('touchstart', handleTouchStart, { passive: true });
       window.addEventListener('touchend', handleTouchEnd, { passive: true });
-
-      // Initialize both videos
-      const videoFwd = videoForwardRef.value;
-      const videoRev = videoReverseRef.value;
 
       // Track all assets that need to load
       let imagesLoaded = 0;
@@ -499,73 +366,37 @@ const App = {
         window.addEventListener('load', onWindowLoad);
       }
 
-      // Detect Safari/WebKit — they need HEVC alpha MOV; everyone else uses VP9 WebM
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
-                     || (navigator.userAgent.includes('AppleWebKit') && !navigator.userAgent.includes('Chrome'));
-      const ext = isSafari ? 'mov' : 'webm';
-      _log(`using .${ext} sources (Safari=${isSafari})`);
+      // Load the coat frame sequence. This resolves only once every frame has
+      // been downloaded AND decoded, so by the time the splash lifts there is
+      // nothing left to fetch or decode and scrolling cannot buffer.
+      // Identical for every browser — no Safari/Chrome codec split, and the
+      // alpha channel now works in both (the old .mov had none, so Safari was
+      // compositing a black square over the gradient).
+      _log('coat frames: load start');
+      CoatFrames.load({
+        pin: FREEZE_FRAMES,
+        onProgress: (fraction) => {
+          window.dispatchEvent(new CustomEvent('coat-progress', { detail: fraction }));
+        }
+      }).then((sequence) => {
+        coatFrames = sequence;
 
-      // Fully download video into memory via fetch, then assign as blob URL.
-      // This guarantees 100% buffered before playback — no streaming stalls.
-      const preloadVideoBlob = (video, url, label) => {
-        _log(`${label}: fetch start → ${url}`);
-        return fetch(url)
-          .then(r => {
-            if (!r.ok) throw new Error(`${label}: HTTP ${r.status}`);
-            _log(`${label}: fetch response received, reading blob...`);
-            return r.blob();
-          })
-          .then(blob => {
-            _log(`${label}: blob ready (${(blob.size / 1024 / 1024).toFixed(1)} MB), assigning to video`);
-            const blobUrl = URL.createObjectURL(blob);
-            video.src = blobUrl;
-            video.muted = true;
-            video.playsInline = true;
-            // Wait for browser to fully parse blob and have enough data to play without stalling
-            return new Promise((resolve) => {
-              video.addEventListener('loadeddata', () => {
-                _log(`${label}: loadeddata (readyState=${video.readyState}, duration=${video.duration})`);
-              }, { once: true });
-              video.addEventListener('canplaythrough', () => {
-                _log(`${label}: canplaythrough (readyState=${video.readyState}, duration=${video.duration})`);
-                // Prime the decoder — forces Safari HEVC to actually decode a frame
-                const p = video.play();
-                if (p && p.then) {
-                  p.then(() => {
-                    video.pause();
-                    video.currentTime = 0;
-                    _log(`${label}: decoder primed`);
-                    resolve();
-                  }).catch(() => {
-                    _log(`${label}: decoder prime failed (autoplay blocked?), proceeding`);
-                    resolve();
-                  });
-                } else {
-                  video.pause();
-                  video.currentTime = 0;
-                  resolve();
-                }
-              }, { once: true });
-              video.load();
-            });
-          });
-      };
+        const canvas = coatCanvasRef.value;
+        canvas.width = sequence.width;
+        canvas.height = sequence.height;
+        coatCtx = canvas.getContext('2d');
+        drawFrame(0);
 
-      Promise.all([
-        preloadVideoBlob(videoFwd, `assets/Coat_Unfolding.${ext}`, 'Forward video'),
-        preloadVideoBlob(videoRev, `assets/Coat_Unfolding_Reverse.${ext}`, 'Reverse video')
-      ]).then(() => {
-        _log('Both videos fully loaded into memory');
+        _log(`coat frames: ready (${sequence.frameCount} frames @ ${sequence.width}x${sequence.height})`);
         videoReady.value = true;
         siteLoaded.value = true;
-        videoFwd.currentTime = 0;
-        videoRev.currentTime = frameToTime(totalFrames);
-        _log(`videoReady=${videoReady.value} windowLoaded=${windowLoaded.value} imagesReady=${imagesReady.value}`);
         tryStart();
-      }).catch(err => {
-        _log(`Video preload FAILED: ${err}`);
-        console.error('Desktop: Video preload failed', err);
-        // Fallback: proceed anyway so the site isn't permanently stuck
+      }).catch((err) => {
+        _log(`coat frames: load FAILED ${err}`);
+        console.error('Desktop: coat frame sequence failed to load', err);
+        // Degrade honestly rather than hanging on the splash forever: the site
+        // stays usable and section changes become instant cuts.
+        coatFrames = null;
         videoReady.value = true;
         siteLoaded.value = true;
         tryStart();
@@ -908,8 +739,7 @@ const App = {
     });
 
     return {
-      videoForwardRef,
-      videoReverseRef,
+      coatCanvasRef,
       scrollProgress,
       currentSection,
       gradientSection,
@@ -920,8 +750,6 @@ const App = {
       scrollToSection,
       showContent,
       exitingSection,
-      isReversing,
-      videoSwitchReady,
       videoReady,
       siteLoaded,
       videoFadedIn,
@@ -964,22 +792,12 @@ const App = {
 
       <!-- Video background with CSS-interpolated gradient -->
       <div class="video-container" :data-section="gradientSection" :style="{ '--gradient-duration': gradientDuration, '--gradient-angle': gradientAngle, '--angle-duration': angleDuration }">
-        <!-- Forward video -->
-        <video
-          ref="videoForwardRef"
-          muted
-          playsinline
-          preload="auto"
-          :class="{ 'video-active': !(isReversing && videoSwitchReady), 'video-hidden': isReversing && videoSwitchReady, 'video-ready': videoFadedIn }"
-        ></video>
-        <!-- Reverse video -->
-        <video
-          ref="videoReverseRef"
-          muted
-          playsinline
-          preload="auto"
-          :class="{ 'video-active': isReversing && videoSwitchReady, 'video-hidden': !(isReversing && videoSwitchReady), 'video-ready': videoFadedIn }"
-        ></video>
+        <!-- Coat frame sequence: one canvas, both directions -->
+        <canvas
+          ref="coatCanvasRef"
+          class="coat-canvas"
+          :class="{ 'video-ready': videoFadedIn }"
+        ></canvas>
       </div>
 
       <!-- Hamburger Menu Button -->

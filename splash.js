@@ -298,10 +298,16 @@
   /**
    * Wait for the app to signal it's truly ready for interaction
    * This waits for 'app-ready' class which is set when:
-   * - Videos are buffered (canplaythrough)
+   * - Every coat frame is downloaded AND decoded (see coat-frames.js)
    * - Window is loaded
    * - All project images are preloaded
    * - hasStarted = true in Vue app
+   *
+   * There is deliberately no "reveal anyway" timeout here. It used to bail out
+   * after 15s and show the site with the coat still buffering, which is exactly
+   * the half-loaded state we want to make impossible. The app now always signals
+   * app-ready - even when the frame bundle fails outright, in which case it
+   * degrades to instant section cuts - so this cannot hang on a slow network.
    */
   function waitForAppReady() {
     return new Promise((resolve) => {
@@ -346,15 +352,15 @@
         attributeFilter: ['class']
       });
 
-      // Safety timeout - only as absolute last resort (slow network, stuck video)
-      // 15 seconds is long enough that if we hit this, something is actually broken
+      // Crash guard only. app.js resolves its own failure paths, so hitting
+      // this means the app script itself threw before it could report.
       setTimeout(() => {
         if (!resolved) {
-          console.warn('Splash: app ready timeout (15s) - proceeding anyway');
+          console.error('Splash: app never signalled ready (60s) - app script likely failed');
           markReady();
           observer.disconnect();
         }
-      }, 15000);
+      }, 60000);
     });
   }
 

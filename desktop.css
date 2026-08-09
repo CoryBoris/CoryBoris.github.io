@@ -136,45 +136,25 @@ body:has(.cv-overlay.active) .scroll-container {
   --gradient-color-3: #f093fb;
 }
 
-.video-container video {
+/* The coat is a single canvas painted from a decoded frame sequence.
+   Sized 1:1 (1080x1080) so max-width/max-height letterbox it exactly the way
+   object-fit: contain did for the old <video> elements. */
+.video-container canvas.coat-canvas {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   max-width: 100%;
   max-height: 100%;
-  object-fit: contain;
-  /* Start hidden - NO transition here, switches must be instant */
+  /* Start hidden - fades in once on frame 0 when the splash lifts */
   opacity: 0;
+  z-index: 2;
 }
 
 /* Initial fade-in: transition only when video-ready is first added */
-.video-container video.video-ready {
+.video-container canvas.coat-canvas.video-ready {
   transition: opacity 0.5s ease-out;
-}
-
-/* After initial fade, remove transition for instant video switches */
-.video-container video.video-ready.video-active,
-.video-container video.video-ready.video-hidden {
-  transition: none;
-}
-
-/* Video visibility states */
-.video-container video.video-ready.video-active {
   opacity: 1;
-  z-index: 2;
-}
-
-.video-container video.video-hidden,
-.video-container video:not(.video-ready) {
-  opacity: 0;
-  z-index: 1;
-}
-
-/* During switch: keep current video visible while new one seeks */
-.video-container video.video-switching {
-  opacity: 1;
-  z-index: 2;
 }
 
 /* Content overlay */
